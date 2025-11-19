@@ -40,13 +40,13 @@ class StickerContentProvider : ContentProvider() {
             
             // WhatsApp documentation paths
             uriMatcher.addURI(AUTHORITY, "metadata", METADATA)
-            uriMatcher.addURI(AUTHORITY, "metadata/#", METADATA_ID)
-            uriMatcher.addURI(AUTHORITY, "stickers/#", STICKERS_ID)
-            uriMatcher.addURI(AUTHORITY, "stickers_asset/#/*", STICKERS_ASSET_ID)
+            uriMatcher.addURI(AUTHORITY, "metadata/*", METADATA_ID) // Changed to * to support String identifier
+            uriMatcher.addURI(AUTHORITY, "stickers/*", STICKERS_ID) // Changed to * to support String identifier
+            uriMatcher.addURI(AUTHORITY, "stickers_asset/*/*", STICKERS_ASSET_ID) // Changed to * to support String identifier
             
-            // Fallback paths (just in case, from previous implementation)
-            uriMatcher.addURI(AUTHORITY, "sticker_packs/#", METADATA_ID)
-            uriMatcher.addURI(AUTHORITY, "sticker_packs/#/stickers", STICKERS_ID)
+            // Fallback paths
+            uriMatcher.addURI(AUTHORITY, "sticker_packs/*", METADATA_ID)
+            uriMatcher.addURI(AUTHORITY, "sticker_packs/*/stickers", STICKERS_ID)
             
             Log.d(TAG, "ContentProvider onCreate. Authority: $AUTHORITY")
             return true
@@ -73,38 +73,76 @@ class StickerContentProvider : ContentProvider() {
                         when (match) {
                             METADATA -> {
                                 Log.d(TAG, "[QUERY] Fetching ALL metadata")
-                                // Currently returning empty cursor to satisfy protocol without heavy lifting.
-                                // Ideally implementation should return all packs if needed.
                                 val cursor = getPackCursorSchema()
-                                Log.w(TAG, "[QUERY] METADATA (all) requested. Returning empty cursor.")
+                                val allPackages = stickerRepository.getStickerPackagesSync()
+                                
+                                for (pack in allPackages) {
+                                    // Verify tray file exists
+                                    val trayFile = File(context.filesDir, pack.trayImageFile)
+                                    if (!trayFile.exists()) {
+                                        Log.w(TAG, "[QUERY] Skipping pack ${pack.name} because tray file missing: ${pack.trayImageFile}")
+                                        continue
+                                    }
+
+                                    val row = arrayOf(
+                                        pack.identifier, // Use UUID identifier
+                                        pack.name,
+                                        pack.author,
+                                        pack.trayImageFile,
+                                        "", // android_play_store_link (optional)
+                                        "", // ios_app_store_link (optional)
+                                        pack.publisherEmail,
+                                        pack.publisherWebsite,
+                                        pack.privacyPolicyWebsite,
+                                        pack.licenseAgreementWebsite,
+                                        pack.imageDataVersion, 
+                                        "0"
+                                    )
+                                    cursor.addRow(row)
+                                }
                                 cursor
                             }
                             METADATA_ID -> {
-                                val packageId = uri.lastPathSegment?.toIntOrNull()
-                                if (packageId == null) return@withContext null
+                                val identifier = uri.lastPathSegment
+                                if (identifier == null) return@withContext null
 
-                                Log.d(TAG, "[QUERY] Fetching metadata for pack $packageId")
-                                val stickerPackage = stickerRepository.getStickerPackageWithStickersSync(packageId)
+                                Log.d(TAG, "[QUERY] Fetching metadata for pack $identifier")
+                                // We now search by identifier (String/UUID), not database ID (Int)
+                                val stickerPackage = stickerRepository.getStickerPackageWithStickersByIdentifierSync(identifier)
 
                                 if (stickerPackage == null) return@withContext null
+                                
+                                // Verify tray file exists
+                                val trayFile = File(context.filesDir, stickerPackage.stickerPackage.trayImageFile)
+                                if (!trayFile.exists()) {
+                                    Log.e(TAG, "[QUERY] Tray file missing for requested pack: ${stickerPackage.stickerPackage.trayImageFile}")
+                                    return@withContext null
+                                }
 
                                 val cursor = getPackCursorSchema()
                                 val row = arrayOf(
-                                    stickerPackage.stickerPackage.id.toString(),
+                                    stickerPackage.stickerPackage.identifier,
                                     stickerPackage.stickerPackage.name,
                                     stickerPackage.stickerPackage.author,
                                     stickerPackage.stickerPackage.trayImageFile,
-                                    "", "", "", "", "", "", "1", "0"
+                                    "", // android_play_store_link
+                                    "", // ios_app_store_link
+                                    stickerPackage.stickerPackage.publisherEmail,
+                                    stickerPackage.stickerPackage.publisherWebsite,
+                                    stickerPackage.stickerPackage.privacyPolicyWebsite,
+                                    stickerPackage.stickerPackage.licenseAgreementWebsite,
+                                    stickerPackage.stickerPackage.imageDataVersion, 
+                                    "0"
                                 )
                                 cursor.addRow(row)
                                 cursor
                             }
                             STICKERS_ID -> {
-                                val packageId = uri.pathSegments[1]?.toIntOrNull() // stickers/<id> -> pathSegments[0]="stickers", [1]="id"
-                                if (packageId == null) return@withContext null
+                                val identifier = uri.pathSegments[1] // stickers/<identifier>
+                                if (identifier == null) return@withContext null
 
-                                Log.d(TAG, "[QUERY] Fetching stickers for pack $packageId")
-                                val stickerPackage = stickerRepository.getStickerPackageWithStickersSync(packageId)
+                                Log.d(TAG, "[QUERY] Fetching stickers for pack $identifier")
+                                val stickerPackage = stickerRepository.getStickerPackageWithStickersByIdentifierSync(identifier)
                                 
                                 if (stickerPackage == null) return@withContext null
 
@@ -114,7 +152,13 @@ class StickerContentProvider : ContentProvider() {
                                 ))
 
                                 stickerPackage.stickers.forEach {
-                                    cursor.addRow(arrayOf(it.imageFile, it.emojis.joinToString(",")))
+                                    // Verify sticker file exists
+                                    val stickerFile = File(context.filesDir, it.imageFile)
+                                    if (stickerFile.exists()) {
+                                        cursor.addRow(arrayOf(it.imageFile, it.emojis.joinToString(",")))
+                                    } else {
+                                        Log.w(TAG, "[QUERY] Skipping missing sticker file: ${it.imageFile}")
+                                    }
                                 }
                                 cursor
                             }
@@ -155,10 +199,6 @@ class StickerContentProvider : ContentProvider() {
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
         Log.d(TAG, "[OPEN FILE] START URI: $uri")
         return try {
-            // Uri structure could be: content://authority/stickers_asset/<id>/<filename>
-            // OR content://authority/<filename> (old way)
-            // We need to handle extracting the filename robustly.
-            
             val fileName = uri.lastPathSegment ?: throw IllegalArgumentException("Invalid URI")
             
             // Security check

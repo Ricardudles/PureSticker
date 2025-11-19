@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.wppsticker.data.local.StickerPackage
+import com.example.wppsticker.domain.repository.StickerRepository
 import com.example.wppsticker.domain.usecase.CreateStickerPackageUseCase
 import com.example.wppsticker.domain.usecase.DeleteStickerPackageUseCase
 import com.example.wppsticker.domain.usecase.GetStickerPackageWithStickersUseCase
@@ -34,6 +35,7 @@ class HomeViewModel @Inject constructor(
     private val deleteStickerPackageUseCase: DeleteStickerPackageUseCase,
     private val getStickerPackageWithStickersUseCase: GetStickerPackageWithStickersUseCase,
     private val createStickerPackageUseCase: CreateStickerPackageUseCase,
+    private val stickerRepository: StickerRepository, // Injected for whitelist check
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -71,30 +73,45 @@ class HomeViewModel @Inject constructor(
         Log.d(TAG, "SendStickerPack: Attempting to send package with id: $packageId")
         val stickerPackage = getStickerPackageWithStickersUseCase(packageId).first()
 
+        // Check limits before sending
         if (stickerPackage.stickers.size < 3) {
             Log.w(TAG, "SendStickerPack: Failed. Not enough stickers (${stickerPackage.stickers.size})")
             _uiEvents.emit("A sticker pack needs at least 3 stickers.")
             return@launch
         }
+        if (stickerPackage.stickers.size > 30) {
+            Log.w(TAG, "SendStickerPack: Failed. Too many stickers (${stickerPackage.stickers.size})")
+            _uiEvents.emit("A sticker pack cannot have more than 30 stickers.")
+            return@launch
+        }
+
         if (stickerPackage.stickerPackage.trayImageFile.isEmpty()) {
             Log.w(TAG, "SendStickerPack: Failed. No tray icon.")
             _uiEvents.emit("A sticker pack needs a tray icon.")
             return@launch
         }
 
+        // Size check (Total package size recommendation is vague, but individual stickers must be < 100KB)
+        // We already check individual sticker size on SaveStickerViewModel.
+        // However, let's double check tray icon existence and valid format if possible (we assume WebP).
+
+        val identifier = stickerPackage.stickerPackage.identifier // Use UUID identifier
+
+        // Check if already whitelisted
+        val isAdded = stickerRepository.isStickerPackageWhitelisted(identifier)
+        if (isAdded) {
+            Log.d(TAG, "SendStickerPack: Package already added to WhatsApp.")
+            _uiEvents.emit("Package already added! WhatsApp will update it automatically.")
+            return@launch
+        }
+
         val authority = "${context.packageName}.provider"
-        val identifier = stickerPackage.stickerPackage.id.toString()
         val name = stickerPackage.stickerPackage.name
 
         // Correct Action for WhatsApp Sticker Integration
         val action = "com.whatsapp.intent.action.ENABLE_STICKER_PACK"
 
         Log.d(TAG, "SendStickerPack: Building Intent.")
-        Log.d(TAG, "  > ACTION: $action")
-        Log.d(TAG, "  > EXTRA sticker_pack_id: $identifier")
-        Log.d(TAG, "  > EXTRA sticker_pack_authority: $authority")
-        Log.d(TAG, "  > EXTRA sticker_pack_name: $name")
-
         val intent = Intent().apply {
             this.action = action
             putExtra("sticker_pack_id", identifier)
@@ -104,8 +121,8 @@ class HomeViewModel @Inject constructor(
         }
 
         // Explicitly grant permissions to WhatsApp to read the provider URIs
-        // This is necessary because the URIs are not in the data/clipData of the Intent
         try {
+            // Updated URIs to match ContentProvider paths that support String identifiers
             val uriPrefix = "content://$authority/sticker_packs/$identifier"
             val packUri = Uri.parse(uriPrefix)
             val stickersUri = Uri.parse("$uriPrefix/stickers")
@@ -117,7 +134,6 @@ class HomeViewModel @Inject constructor(
                     context.grantUriPermission(pkg, stickersUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     Log.d(TAG, "Granted URI permission to $pkg for $packUri and $stickersUri")
                 } catch (e: Exception) {
-                    // Ignore if package not found or other minor issues during grant
                     Log.w(TAG, "Could not grant permission to $pkg: ${e.message}")
                 }
             }
@@ -125,8 +141,6 @@ class HomeViewModel @Inject constructor(
             Log.e(TAG, "Error setting up permissions", e)
         }
         
-        // Sending IMPLICIT intent (no setPackage) to let Android resolve the best app.
-        // Fallback logic in HomeScreen handles explicit packages if needed.
         Log.d(TAG, "Attempting to launch implicit intent")
         _sendIntent.value = intent
     }
