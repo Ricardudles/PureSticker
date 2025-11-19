@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WppSticker</string>
+    <string name="create_new_pack">Create New Pack</string>
+    <string name="package_name">Package Name</string>
+</resources>
