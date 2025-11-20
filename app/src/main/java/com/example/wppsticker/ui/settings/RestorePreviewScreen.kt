@@ -2,7 +2,6 @@ package com.example.wppsticker.ui.settings
 
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,11 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -44,16 +41,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
-import com.example.wppsticker.data.backup.BackupPackageDto
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -150,9 +143,6 @@ private fun RestoreItem(
     isSelected: Boolean,
     onToggle: () -> Unit
 ) {
-    // Only enable interaction if status is NEW (not already present)
-    // Assuming RestoreStatus logic handles duplicates. 
-    // If status != NEW, we disable selection or show warning.
     val isEnabled = backupInfo.status == RestoreStatus.NEW
     
     Card(
@@ -172,7 +162,6 @@ private fun RestoreItem(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Checkbox
             Checkbox(
                 checked = isSelected, 
                 onCheckedChange = { onToggle() },

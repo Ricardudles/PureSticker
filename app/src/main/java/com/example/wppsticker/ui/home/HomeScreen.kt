@@ -9,13 +9,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -29,13 +26,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -193,7 +188,6 @@ private fun StickerPackageItem(
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val trayIconFile = File(context.filesDir, stickerPackage.stickerPackage.trayImageFile)
 
     Card(
         modifier = Modifier
@@ -206,26 +200,9 @@ private fun StickerPackageItem(
         Column(modifier = Modifier.padding(16.dp)) {
             // --- Header Row ---
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Tray Icon
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(trayIconFile)
-                        .crossfade(true)
-                        .build(),
-                    placeholder = painterResource(R.drawable.ic_launcher_foreground),
-                    error = painterResource(R.drawable.ic_launcher_foreground),
-                    contentDescription = "Tray Icon",
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), CircleShape),
-                    contentScale = ContentScale.Crop
-                )
+                // Removed Tray Icon as requested
                 
-                Spacer(modifier = Modifier.width(16.dp))
-                
-                // Info
+                // Info (Name & Author)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         stickerPackage.stickerPackage.name, 
@@ -257,7 +234,7 @@ private fun StickerPackageItem(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // --- Preview Grid ---
             // Show a neat row of previews
@@ -266,7 +243,7 @@ private fun StickerPackageItem(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    stickerPackage.stickers.take(5).forEach { sticker ->
+                    stickerPackage.stickers.take(6).forEach { sticker ->
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(File(context.filesDir, sticker.imageFile))
@@ -274,15 +251,12 @@ private fun StickerPackageItem(
                                 .size(256)
                                 .build(),
                             contentDescription = null,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.background) // Darker background for contrast
+                            modifier = Modifier.size(48.dp)
                         )
                     }
                     
                     // "+N" Indicator
-                    if (stickerPackage.stickers.size > 5) {
+                    if (stickerPackage.stickers.size > 6) {
                         Box(
                             modifier = Modifier
                                 .size(48.dp)
@@ -291,7 +265,7 @@ private fun StickerPackageItem(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "+${stickerPackage.stickers.size - 5}",
+                                text = "+${stickerPackage.stickers.size - 6}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
@@ -299,7 +273,7 @@ private fun StickerPackageItem(
                     }
                 }
             } else {
-                Text("Empty pack", style = MaterialTheme.typography.bodySmall, color = Color.Gray, modifier = Modifier.padding(start = 8.dp))
+                Text("Empty pack", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
         }
     }

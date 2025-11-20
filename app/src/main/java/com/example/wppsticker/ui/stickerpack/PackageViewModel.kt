@@ -49,6 +49,15 @@ class PackageViewModel @Inject constructor(
             incrementPackageVersion()
         }
     }
+    
+    fun deleteStickers(stickerIds: List<Int>) {
+        viewModelScope.launch {
+            stickerIds.forEach { id ->
+                deleteStickerUseCase(id)
+            }
+            incrementPackageVersion()
+        }
+    }
 
     fun updatePackageDetails(
         name: String, 

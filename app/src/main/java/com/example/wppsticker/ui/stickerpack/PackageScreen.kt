@@ -3,11 +3,13 @@ package com.example.wppsticker.ui.stickerpack
 import android.Manifest
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +25,15 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -81,6 +86,12 @@ fun PackageScreen(
 ) {
     val stickerPackageState by viewModel.stickerPackage.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteStickerDialog by remember { mutableStateOf<Sticker?>(null) }
+    
+    // Selection State
+    var selectedStickers by remember { mutableStateOf(setOf<Int>()) }
+    val isSelectionMode = selectedStickers.isNotEmpty()
+    var showDeleteSelectionDialog by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -102,6 +113,11 @@ fun PackageScreen(
         if (isGranted) {
             imagePickerLauncher.launch("image/*")
         }
+    }
+    
+    // Handle Back Press to clear selection
+    BackHandler(enabled = isSelectionMode) {
+        selectedStickers = emptySet()
     }
 
     // Edit Dialog
@@ -135,7 +151,6 @@ fun PackageScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    // Hidden optional fields to keep UI clean unless needed (can expand later)
                 }
             },
             confirmButton = {
@@ -157,29 +172,93 @@ fun PackageScreen(
         )
     }
 
+    // Single Delete Confirmation Dialog
+    if (showDeleteStickerDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteStickerDialog = null },
+            title = { Text("Delete Sticker?") },
+            text = { Text("Are you sure you want to remove this sticker from the pack? This cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteStickerDialog?.let { viewModel.deleteSticker(it.id) }
+                        showDeleteStickerDialog = null
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteStickerDialog = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    // Batch Delete Confirmation Dialog
+    if (showDeleteSelectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteSelectionDialog = false },
+            title = { Text("Delete ${selectedStickers.size} Stickers?") },
+            text = { Text("Are you sure you want to remove the selected stickers? This cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteStickers(selectedStickers.toList())
+                        selectedStickers = emptySet()
+                        showDeleteSelectionDialog = false
+                    },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete All")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteSelectionDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            val title = if (stickerPackageState is UiState.Success) {
+            val title = if (isSelectionMode) {
+                "${selectedStickers.size} Selected"
+            } else if (stickerPackageState is UiState.Success) {
                 (stickerPackageState as UiState.Success).data.stickerPackage.name
             } else {
                 "Loading..."
             }
+            
             TopAppBar(
                 title = { Text(title, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = if (isSelectionMode) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
                     actionIconContentColor = MaterialTheme.colorScheme.onBackground
                 ),
                 navigationIcon = {
-                     IconButton(onClick = { navController.popBackStack() }) {
-                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                     if (isSelectionMode) {
+                         IconButton(onClick = { selectedStickers = emptySet() }) {
+                             Icon(Icons.Default.Close, contentDescription = "Close Selection")
+                         }
+                     } else {
+                         IconButton(onClick = { navController.popBackStack() }) {
+                             Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                         }
                      }
                 },
                 actions = {
-                    if (stickerPackageState is UiState.Success) {
+                    if (isSelectionMode) {
+                        IconButton(onClick = { showDeleteSelectionDialog = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
+                        }
+                    } else if (stickerPackageState is UiState.Success) {
                         IconButton(onClick = { showEditDialog = true }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit")
                         }
@@ -188,12 +267,14 @@ fun PackageScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { permissionState.launchPermissionRequest() },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Sticker")
+            if (!isSelectionMode) {
+                FloatingActionButton(
+                    onClick = { permissionState.launchPermissionRequest() },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Sticker")
+                }
             }
         }
     ) { padding ->
@@ -223,7 +304,24 @@ fun PackageScreen(
                             items(state.data.stickers) { sticker ->
                                 StickerItem(
                                     sticker = sticker,
-                                    onDelete = { viewModel.deleteSticker(sticker.id) }
+                                    isSelectionMode = isSelectionMode,
+                                    isSelected = selectedStickers.contains(sticker.id),
+                                    onLongClick = {
+                                        if (!isSelectionMode) {
+                                            selectedStickers = selectedStickers + sticker.id
+                                        }
+                                    },
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            selectedStickers = if (selectedStickers.contains(sticker.id)) {
+                                                selectedStickers - sticker.id
+                                            } else {
+                                                selectedStickers + sticker.id
+                                            }
+                                        }
+                                        // Else normal click behavior (e.g. preview) if implemented
+                                    },
+                                    onDelete = { showDeleteStickerDialog = sticker }
                                 )
                             }
                         }
@@ -237,18 +335,26 @@ fun PackageScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun StickerItem(
     sticker: Sticker,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
+    onLongClick: () -> Unit,
+    onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
-    // We hide technical details unless there's an issue, but since we enforce limits on save, assume good.
     
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(2.dp),
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        )
     ) {
         Box(modifier = Modifier.aspectRatio(1f)) {
             AsyncImage(
@@ -256,26 +362,48 @@ private fun StickerItem(
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(8.dp) // Inner padding for the sticker
+                    .padding(8.dp) 
             )
             
-            // Delete Button Overlay
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .clickable { onDelete() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Delete, 
-                    contentDescription = "Delete",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
+            if (isSelectionMode) {
+                // Overlay for selection mode
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) 
+                            else Color.Transparent
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSelected) {
+                        Icon(
+                            Icons.Default.CheckCircle, 
+                            contentDescription = "Selected",
+                            tint = Color.White,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+            } else {
+                // Delete Button Overlay (Only visible when NOT selecting)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clickable { onDelete() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Delete, 
+                        contentDescription = "Delete",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
         }
     }
