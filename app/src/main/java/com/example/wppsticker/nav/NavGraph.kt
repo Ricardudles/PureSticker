@@ -8,6 +8,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.wppsticker.ui.editor.EditorScreen
 import com.example.wppsticker.ui.home.HomeScreen
+import com.example.wppsticker.ui.settings.RestorePreviewScreen
+import com.example.wppsticker.ui.settings.SettingsScreen
 import com.example.wppsticker.ui.stickerpack.PackageScreen
 import com.example.wppsticker.ui.stickerpack.SaveStickerScreen
 
@@ -36,6 +38,15 @@ fun NavGraph() {
             arguments = listOf(navArgument("stickerUri") { type = NavType.StringType })
         ) {
             SaveStickerScreen(navController = navController)
+        }
+        composable(Screen.Settings.name) {
+            SettingsScreen(navController = navController)
+        }
+        composable(
+            route = "${Screen.RestorePreview.name}/{backupUri}",
+            arguments = listOf(navArgument("backupUri") { type = NavType.StringType })
+        ) {
+            RestorePreviewScreen(navController = navController)
         }
     }
 }

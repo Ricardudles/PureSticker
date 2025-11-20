@@ -20,6 +20,14 @@ class StickerRepositoryImpl @Inject constructor(
     override fun getStickerPackages(): Flow<List<StickerPackage>> {
         return stickerDao.getStickerPackages()
     }
+
+    override fun getStickerPackagesWithStickers(): Flow<List<StickerPackageWithStickers>> {
+        return stickerDao.getStickerPackagesWithStickers()
+    }
+
+    override suspend fun getStickerPackagesWithStickersSync(): List<StickerPackageWithStickers> {
+        return stickerDao.getStickerPackagesWithStickersSync()
+    }
     
     override fun getStickerPackagesSync(): List<StickerPackage> {
         return stickerDao.getStickerPackagesSync()
@@ -100,5 +108,13 @@ class StickerRepositoryImpl @Inject constructor(
                 return@withContext false
             }
         }
+    }
+
+    override suspend fun getAllStickerFileNames(): List<String> {
+        return stickerDao.getAllStickerFileNames()
+    }
+
+    override suspend fun getAllTrayIconFileNames(): List<String> {
+        return stickerDao.getAllTrayIconFileNames()
     }
 }

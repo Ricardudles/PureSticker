@@ -4,5 +4,7 @@ enum class Screen {
     Home,
     StickerPack,
     Editor,
-    SaveSticker
+    SaveSticker,
+    Settings,
+    RestorePreview
 }

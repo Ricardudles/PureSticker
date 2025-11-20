@@ -8,6 +8,10 @@ import kotlinx.coroutines.flow.Flow
 interface StickerRepository {
 
     fun getStickerPackages(): Flow<List<StickerPackage>>
+
+    fun getStickerPackagesWithStickers(): Flow<List<StickerPackageWithStickers>>
+
+    suspend fun getStickerPackagesWithStickersSync(): List<StickerPackageWithStickers>
     
     fun getStickerPackagesSync(): List<StickerPackage>
 
@@ -28,4 +32,8 @@ interface StickerRepository {
     suspend fun deleteSticker(stickerId: Int)
 
     suspend fun isStickerPackageWhitelisted(identifier: String): Boolean
+
+    suspend fun getAllStickerFileNames(): List<String>
+    
+    suspend fun getAllTrayIconFileNames(): List<String>
 }

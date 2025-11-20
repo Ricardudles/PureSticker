@@ -16,9 +16,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") } // Required for some libraries if needed, though vanniktech is on MavenCentral usually
     }
 }
 
 rootProject.name = "WppSticker"
 include(":app")
- 

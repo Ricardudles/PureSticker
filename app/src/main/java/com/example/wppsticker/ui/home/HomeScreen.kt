@@ -10,39 +10,54 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.wppsticker.R
-import com.example.wppsticker.data.local.StickerPackage
+import com.example.wppsticker.data.local.StickerPackageWithStickers
 import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.util.UiState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.flow.collectLatest
+import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 private const val TAG = "StickerAppDebug"
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     navController: NavController,
@@ -51,27 +66,11 @@ fun HomeScreen(
     val stickerPackagesState by viewModel.stickerPackages.collectAsState()
     val sendIntent by viewModel.sendIntent.collectAsState()
     val context = LocalContext.current
-    var showDebugDialog by remember { mutableStateOf<StickerPackage?>(null) }
 
     LaunchedEffect(key1 = true) {
         viewModel.uiEvents.collectLatest { event ->
             Toast.makeText(context, event, Toast.LENGTH_SHORT).show()
         }
-    }
-
-    showDebugDialog?.let { pack ->
-        AlertDialog(
-            onDismissRequest = { showDebugDialog = null },
-            title = { Text("Debug Info: ${pack.name}") },
-            text = { 
-                Column {
-                    Text("ID: ${pack.id}", fontSize = 12.sp)
-                    Text("Author: ${pack.author}", fontSize = 12.sp)
-                    Text("Tray Icon File: ${pack.trayImageFile}", fontSize = 12.sp)
-                }
-             },
-            confirmButton = { Button(onClick = { showDebugDialog = null }) { Text("OK") } }
-        )
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -105,57 +104,11 @@ fun HomeScreen(
 
     LaunchedEffect(sendIntent) {
         sendIntent?.let { intent ->
-            Log.d(TAG, "HomeScreen: Received sendIntent. Launching WhatsApp... Package: ${intent.`package`}")
             try {
                 whatsappLauncher.launch(intent)
             } catch (e: ActivityNotFoundException) {
-                Log.w(TAG, "HomeScreen: First attempt failed for package ${intent.`package`}")
-                
-                // Fallback logic handled in UI because launch() throws here, not in ViewModel
-                val currentPackage = intent.`package`
-                
-                if (currentPackage == null) {
-                    // Implicit attempt failed. Try explicit com.whatsapp
-                    Log.d(TAG, "HomeScreen: Implicit failed. Trying fallback to com.whatsapp")
-                    val newIntent = Intent(intent).apply {
-                        setPackage("com.whatsapp")
-                    }
-                    try {
-                        whatsappLauncher.launch(newIntent)
-                    } catch (e2: ActivityNotFoundException) {
-                        // com.whatsapp failed. Try com.whatsapp.w4b
-                        Log.d(TAG, "HomeScreen: com.whatsapp failed. Trying fallback to com.whatsapp.w4b")
-                        val businessIntent = Intent(intent).apply {
-                            setPackage("com.whatsapp.w4b")
-                        }
-                        try {
-                            whatsappLauncher.launch(businessIntent)
-                        } catch (e3: ActivityNotFoundException) {
-                            Log.e(TAG, "HomeScreen: All attempts failed.")
-                            Toast.makeText(context, "WhatsApp (Standard or Business) not found.", Toast.LENGTH_LONG).show()
-                            viewModel.onSendIntentLaunched()
-                        }
-                    }
-                } else if (currentPackage == "com.whatsapp") {
-                    Log.d(TAG, "HomeScreen: Trying fallback to com.whatsapp.w4b")
-                    val newIntent = Intent(intent).apply {
-                        setPackage("com.whatsapp.w4b")
-                    }
-                    try {
-                        whatsappLauncher.launch(newIntent)
-                    } catch (e2: ActivityNotFoundException) {
-                        Log.e(TAG, "HomeScreen: Fallback also failed.")
-                        Toast.makeText(context, "WhatsApp (Standard or Business) not found.", Toast.LENGTH_LONG).show()
-                        viewModel.onSendIntentLaunched()
-                    }
-                } else {
-                    Log.e(TAG, "HomeScreen: Launch failed and no fallback available.")
-                    Toast.makeText(context, "WhatsApp not installed or not found.", Toast.LENGTH_LONG).show()
-                    viewModel.onSendIntentLaunched()
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "HomeScreen: WhatsApp launch failed - Generic Error", e)
-                Toast.makeText(context, "Error launching WhatsApp: ${e.message}", Toast.LENGTH_LONG).show()
+                Log.w(TAG, "Could not launch implicit intent", e)
+                Toast.makeText(context, "WhatsApp not found.", Toast.LENGTH_LONG).show()
                 viewModel.onSendIntentLaunched()
             }
         }
@@ -163,7 +116,14 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(stringResource(id = R.string.app_name)) })
+            TopAppBar(
+                title = { Text(stringResource(id = R.string.app_name)) },
+                actions = {
+                    IconButton(onClick = { navController.navigate(Screen.Settings.name) }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings & Backup")
+                    }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { 
@@ -173,71 +133,125 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (val state = stickerPackagesState) {
-                is UiState.Loading -> CircularProgressIndicator()
+                is UiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 is UiState.Success -> {
                     LazyColumn(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(state.data) { stickerPackage ->
                             StickerPackageItem(
                                 stickerPackage = stickerPackage,
-                                onDelete = { viewModel.deleteStickerPackage(stickerPackage.id) },
-                                onSend = { viewModel.sendStickerPack(stickerPackage.id) },
+                                onDelete = { viewModel.deleteStickerPackage(stickerPackage.stickerPackage.id) },
+                                onSend = { viewModel.sendStickerPack(stickerPackage.stickerPackage.id) },
                                 onClick = {
-                                    navController.navigate("${Screen.StickerPack.name}/${stickerPackage.id}")
-                                },
-                                onLongClick = { showDebugDialog = stickerPackage }
+                                    navController.navigate("${Screen.StickerPack.name}/${stickerPackage.stickerPackage.id}")
+                                }
                             )
                         }
                     }
                 }
                 is UiState.Empty -> {
-                    Text("No sticker packs found. Create one!")
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No sticker packs yet. Tap '+' to create one!")
+                    }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+
 @Composable
 private fun StickerPackageItem(
-    stickerPackage: StickerPackage,
+    stickerPackage: StickerPackageWithStickers,
     onDelete: () -> Unit,
     onSend: () -> Unit,
-    onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().pointerInput(Unit) {
-            detectTapGestures(
-                onLongPress = { onLongClick() },
-                onTap = { onClick() }
-            )
-        }
+    val context = LocalContext.current
+    val trayIconFile = File(context.filesDir, stickerPackage.stickerPackage.trayImageFile)
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(text = stickerPackage.name)
-                Text(text = stickerPackage.author)
-            }
-            Row {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // --- Header --- 
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(trayIconFile)
+                        .crossfade(true)
+                        .build(),
+                    placeholder = painterResource(R.drawable.ic_launcher_foreground),
+                    error = painterResource(R.drawable.ic_launcher_foreground),
+                    contentDescription = "Tray Icon",
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stickerPackage.stickerPackage.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(stickerPackage.stickerPackage.author, fontSize = 14.sp, color = Color.Gray)
+                }
+                // Actions
                 IconButton(onClick = onSend) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to WhatsApp")
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete Package")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // --- Sticker Preview Row ---
+            if (stickerPackage.stickers.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(stickerPackage.stickers.take(5)) { sticker ->
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(File(context.filesDir, sticker.imageFile))
+                                .crossfade(true)
+                                .size(256) // Load a smaller version
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                        )
+                    }
+                    if (stickerPackage.stickers.size > 5) {
+                        item { // Wrapped in item scope
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "+${stickerPackage.stickers.size - 5}",
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

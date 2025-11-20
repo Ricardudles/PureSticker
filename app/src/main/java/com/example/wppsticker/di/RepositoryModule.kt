@@ -1,6 +1,8 @@
 package com.example.wppsticker.di
 
+import com.example.wppsticker.data.repository.BackupRepositoryImpl
 import com.example.wppsticker.data.repository.StickerRepositoryImpl
+import com.example.wppsticker.domain.repository.BackupRepository
 import com.example.wppsticker.domain.repository.StickerRepository
 import dagger.Binds
 import dagger.Module
@@ -15,4 +17,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindStickerRepository(impl: StickerRepositoryImpl): StickerRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBackupRepository(impl: BackupRepositoryImpl): BackupRepository
 }

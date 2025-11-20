@@ -1,15 +1,18 @@
 package com.example.wppsticker.ui.editor
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,7 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,21 +41,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.canhub.cropper.CropImageContract
 import com.example.wppsticker.nav.Screen
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,17 +67,20 @@ fun EditorScreen(
 ) {
     val isBusy by viewModel.isBusy.collectAsState()
     val imageUri by viewModel.imageUri.collectAsState()
-    val scale by viewModel.scale.collectAsState()
-    val rotation by viewModel.rotation.collectAsState()
-    val offset by viewModel.offset.collectAsState()
-    val isCropMode by viewModel.isCropMode.collectAsState()
-    val cropRect by viewModel.cropRect.collectAsState()
+    val imageState by viewModel.imageState.collectAsState()
     val texts by viewModel.texts.collectAsState()
     val selectedTextId by viewModel.selectedTextId.collectAsState()
     val showTextDialog by viewModel.showTextDialog.collectAsState()
     val navigateToSave by viewModel.navigateToSave.collectAsState()
-
-    var selectedCorner by remember { mutableStateOf<Corner?>(null) }
+    
+    val cropLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        if (result.isSuccessful) {
+            val uriContent = result.uriContent
+            if (uriContent != null) {
+                viewModel.onImageCropped(uriContent)
+            }
+        }
+    }
 
     LaunchedEffect(navigateToSave) {
         navigateToSave?.let {
@@ -95,13 +102,10 @@ fun EditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { },
+                title = { Text("Edit Sticker") },
                 actions = {
                     IconButton(onClick = { viewModel.showTextDialog(true) }) {
                         Icon(Icons.Default.Add, contentDescription = "Add Text")
-                    }
-                    IconButton(onClick = { viewModel.toggleCropMode() }) {
-                        Icon(Icons.Default.Create, contentDescription = "Crop Image")
                     }
                     IconButton(onClick = { viewModel.onSaveAndContinue() }) {
                         Icon(Icons.Default.Check, contentDescription = "Continue")
@@ -110,100 +114,137 @@ fun EditorScreen(
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            Box(
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .background(Color.DarkGray) // Dark background for contrast
+        ) {
+            // Workspace Area
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(isCropMode, selectedTextId) {
-                        detectTapGestures(
-                            onTap = { touchOffset ->
-                                val tappedText = texts.find { it.getBoundingBox(32f).contains(touchOffset) }
-                                viewModel.onTextSelected(tappedText?.id)
-                            }
-                        )
-                        if (isCropMode) {
-                            detectDragGestures(
-                                onDragStart = { touchOffset ->
-                                    selectedCorner = Corner.fromTouchPoint(cropRect, touchOffset)
-                                },
-                                onDragEnd = { selectedCorner = null }
-                            ) { change, dragAmount ->
-                                selectedCorner?.let {
-                                    val newRect = it.move(cropRect, dragAmount)
-                                    viewModel.updateCropRect(newRect)
-                                }
-                                change.consume()
-                            }
-                        } else if (selectedTextId != null) {
-                            detectTransformGestures { _, pan, zoom, gestureRotation ->
-                                viewModel.updateSelectedText(offset = pan, scale = zoom, rotation = gestureRotation)
-                            }
-                        } else {
-                            detectTransformGestures { _, pan, zoom, gestureRotation ->
-                                viewModel.onOffsetChanged(pan)
-                                viewModel.onScaleChanged(zoom)
-                                viewModel.onRotationChanged(gestureRotation)
-                            }
-                        }
-                    }
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                imageUri?.let { uri ->
-                    AsyncImage(
-                        model = uri,
-                        contentDescription = "Selected Image",
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .graphicsLayer(
-                                scaleX = scale,
-                                scaleY = scale,
-                                rotationZ = rotation,
-                                translationX = offset.x,
-                                translationY = offset.y
-                            )
-                    )
-                }
+                // We want a square workspace that fits within the available space
+                val workspaceSize = minOf(maxWidth, maxHeight)
+                val density = LocalDensity.current
+                
+                // Mapping factors to convert between screen pixels and canvas (512x512)
+                val canvasSize = 512f
+                val scaleToCanvas = remember(workspaceSize) { canvasSize / with(density) { workspaceSize.toPx() } }
+                val scaleFromCanvas = remember(workspaceSize) { with(density) { workspaceSize.toPx() } / canvasSize }
 
-                texts.forEach { textData ->
-                    val borderModifier = if (textData.id == selectedTextId) {
-                        Modifier.border(2.dp, Color.Yellow)
-                    } else {
-                        Modifier
-                    }
-                    Text(
-                        text = textData.text,
-                        color = textData.color,
-                        fontSize = 32.sp,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .then(borderModifier)
-                            .padding(4.dp)
-                            .graphicsLayer(
-                                scaleX = textData.scale,
-                                scaleY = textData.scale,
-                                rotationZ = textData.rotation,
-                                translationX = textData.offset.x,
-                                translationY = textData.offset.y
-                            )
-                            .clickable { viewModel.onTextSelected(textData.id) }
-                    )
-                }
-
-                if (isCropMode) {
+                Box(
+                    modifier = Modifier
+                        .size(workspaceSize)
+                        .aspectRatio(1f)
+                        .background(Color.Transparent) // The sticker background is transparent usually
+                ) {
+                    // 1. Guide/Border for the sticker area
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawRect(
                             color = Color.White,
-                            topLeft = cropRect.topLeft,
-                            size = cropRect.size,
-                            style = Stroke(width = 2f)
+                            style = Stroke(
+                                width = 2.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                            )
                         )
-                        drawCircle(Color.White, radius = 20f, center = cropRect.topLeft)
-                        drawCircle(Color.White, radius = 20f, center = cropRect.topRight)
-                        drawCircle(Color.White, radius = 20f, center = cropRect.bottomLeft)
-                        drawCircle(Color.White, radius = 20f, center = cropRect.bottomRight)
+                    }
+
+                    // 2. Image Layer with Transforms
+                    // We clip content to the box so it looks like the final cut
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clipToBounds()
+                            .pointerInput(Unit) {
+                                detectTapGestures {
+                                    viewModel.onTextSelected(null)
+                                }
+                            }
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, pan, zoom, rotation ->
+                                    // Check directly from ViewModel to avoid stale capture in closure
+                                    if (viewModel.selectedTextId.value == null) {
+                                        // Apply transforms to image if no text is selected
+                                        // Convert pan from screen pixels to canvas units (512x512)
+                                        val canvasPan = pan * scaleToCanvas
+                                        viewModel.updateImageState(offset = canvasPan, scale = zoom, rotation = rotation)
+                                    }
+                                }
+                            }
+                    ) {
+                        imageUri?.let { uri ->
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = "Sticker Image",
+                                modifier = Modifier
+                                    .fillMaxSize() // Coil usually fits/fills. We want it centered initially.
+                                    .graphicsLayer(
+                                        scaleX = imageState.scale,
+                                        scaleY = imageState.scale,
+                                        rotationZ = imageState.rotation,
+                                        translationX = imageState.offset.x * scaleFromCanvas, // Convert back to screen pixels for display
+                                        translationY = imageState.offset.y * scaleFromCanvas
+                                    )
+                            )
+                        }
+                    }
+
+                    // 3. Text Layer
+                    texts.forEach { textData ->
+                        val isSelected = textData.id == selectedTextId
+                        val borderModifier = if (isSelected) {
+                            Modifier.border(1.dp, Color.Yellow)
+                        } else {
+                            Modifier
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center) // Start from center
+                                .graphicsLayer(
+                                    scaleX = textData.scale,
+                                    scaleY = textData.scale,
+                                    rotationZ = textData.rotation,
+                                    translationX = textData.offset.x * scaleFromCanvas,
+                                    translationY = textData.offset.y * scaleFromCanvas
+                                )
+                                .then(borderModifier)
+                                .pointerInput(textData.id) {
+                                    detectTapGestures {
+                                        viewModel.onTextSelected(textData.id)
+                                    }
+                                }
+                                .pointerInput(textData.id, isSelected) {
+                                    if (isSelected) {
+                                        detectTransformGestures { _, pan, zoom, rotation ->
+                                            val canvasPan = pan * scaleToCanvas
+                                            viewModel.updateSelectedText(
+                                                offset = canvasPan,
+                                                scale = zoom,
+                                                rotation = rotation
+                                            )
+                                        }
+                                    }
+                                }
+                        ) {
+                            Text(
+                                text = textData.text,
+                                color = textData.color,
+                                // Font size needs to be relative to the workspace size to match canvas 32f
+                                // 32f is 32/512 = 0.0625 of the canvas size
+                                fontSize = (workspaceSize.value * 0.0625f).sp, // Approximate visual matching
+                                modifier = Modifier.padding(4.dp)
+                            )
+                        }
                     }
                 }
             }
 
+            // Controls (Color Selector)
             val selectedText = texts.find { it.id == selectedTextId }
             if (selectedText != null) {
                 ColorSelector(
@@ -246,36 +287,4 @@ fun ColorSelector(selectedColor: Color, onColorSelected: (Color) -> Unit, modifi
             )
         }
     }
-}
-
-enum class Corner {
-    TopLeft, TopRight, BottomLeft, BottomRight;
-
-    fun move(rect: Rect, dragAmount: Offset): Rect {
-        return when (this) {
-            TopLeft -> Rect(rect.left + dragAmount.x, rect.top + dragAmount.y, rect.right, rect.bottom)
-            TopRight -> Rect(rect.left, rect.top + dragAmount.y, rect.right + dragAmount.x, rect.bottom)
-            BottomLeft -> Rect(rect.left + dragAmount.x, rect.top, rect.right, rect.bottom + dragAmount.y)
-            BottomRight -> Rect(rect.left, rect.top, rect.right + dragAmount.x, rect.bottom + dragAmount.y)
-        }
-    }
-
-    companion object {
-        fun fromTouchPoint(rect: Rect, touchPoint: Offset): Corner? {
-            val touchRadius = 40f
-            return when {
-                abs(touchPoint.x - rect.left) < touchRadius && abs(touchPoint.y - rect.top) < touchRadius -> TopLeft
-                abs(touchPoint.x - rect.right) < touchRadius && abs(touchPoint.y - rect.top) < touchRadius -> TopRight
-                abs(touchPoint.x - rect.left) < touchRadius && abs(touchPoint.y - rect.bottom) < touchRadius -> BottomLeft
-                abs(touchPoint.x - rect.right) < touchRadius && abs(touchPoint.y - rect.bottom) < touchRadius -> BottomRight
-                else -> null
-            }
-        }
-    }
-}
-
-fun TextData.getBoundingBox(fontSize: Float): Rect {
-    // Simplified calculation
-    val width = text.length * fontSize * 0.6f 
-    return Rect(center = offset, radius = width)
 }

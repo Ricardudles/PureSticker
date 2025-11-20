@@ -2,12 +2,10 @@ package com.example.wppsticker.ui.editor
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
 import android.net.Uri
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.drawable.toBitmap
@@ -16,7 +14,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import coil.request.ImageRequest
-import com.example.wppsticker.util.ImageHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +25,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.min
 
 @HiltViewModel
 class EditorViewModel @Inject constructor(
@@ -35,25 +33,14 @@ class EditorViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    val imageUri: StateFlow<Uri?> = MutableStateFlow(Uri.parse(checkNotNull(savedStateHandle["imageUri"])))
+    private val _imageUri = MutableStateFlow<Uri?>(null)
+    val imageUri: StateFlow<Uri?> = _imageUri.asStateFlow()
+
+    private val _imageState = MutableStateFlow(ImageState())
+    val imageState: StateFlow<ImageState> = _imageState.asStateFlow()
 
     private val _isBusy = MutableStateFlow(false)
     val isBusy: StateFlow<Boolean> = _isBusy.asStateFlow()
-
-    private val _scale = MutableStateFlow(1f)
-    val scale: StateFlow<Float> = _scale.asStateFlow()
-
-    private val _rotation = MutableStateFlow(0f)
-    val rotation: StateFlow<Float> = _rotation.asStateFlow()
-
-    private val _offset = MutableStateFlow(Offset.Zero)
-    val offset: StateFlow<Offset> = _offset.asStateFlow()
-
-    private val _isCropMode = MutableStateFlow(false)
-    val isCropMode: StateFlow<Boolean> = _isCropMode.asStateFlow()
-
-    private val _cropRect = MutableStateFlow(Rect(100f, 100f, 500f, 500f))
-    val cropRect: StateFlow<Rect> = _cropRect.asStateFlow()
 
     private val _texts = MutableStateFlow<List<TextData>>(emptyList())
     val texts: StateFlow<List<TextData>> = _texts.asStateFlow()
@@ -67,11 +54,18 @@ class EditorViewModel @Inject constructor(
     private val _navigateToSave = MutableStateFlow<String?>(null)
     val navigateToSave: StateFlow<String?> = _navigateToSave.asStateFlow()
 
-    fun onScaleChanged(scale: Float) { _scale.update { it * scale } }
-    fun onRotationChanged(rotation: Float) { _rotation.update { it + rotation } }
-    fun onOffsetChanged(offset: Offset) { _offset.update { it + offset } }
-    fun toggleCropMode() { _isCropMode.update { !it } }
-    fun updateCropRect(newRect: Rect) { _cropRect.value = newRect }
+    init {
+        val uriString = savedStateHandle.get<String>("imageUri")
+        if (uriString != null) {
+            _imageUri.value = Uri.parse(uriString)
+        }
+    }
+
+    fun onImageCropped(uri: Uri) {
+        _imageUri.value = uri
+        // Reset state on new image
+        _imageState.value = ImageState()
+    }
 
     fun addText(text: String) {
         val newText = TextData(text = text)
@@ -93,6 +87,8 @@ class EditorViewModel @Inject constructor(
         }
     }
 
+    // Updates the text transformation.
+    // offset should be in 512x512 canvas units.
     fun updateSelectedText(offset: Offset? = null, scale: Float? = null, rotation: Float? = null) {
         _texts.update { texts ->
             texts.map {
@@ -107,40 +103,85 @@ class EditorViewModel @Inject constructor(
         }
     }
 
+    // Updates the background image transformation.
+    // offset should be in 512x512 canvas units.
+    fun updateImageState(offset: Offset? = null, scale: Float? = null, rotation: Float? = null) {
+        _imageState.update { current ->
+            current.copy(
+                offset = current.offset + (offset ?: Offset.Zero),
+                scale = current.scale * (scale ?: 1f),
+                rotation = current.rotation + (rotation ?: 0f)
+            )
+        }
+    }
+
     fun onSaveAndContinue() = viewModelScope.launch {
         _isBusy.value = true
-        val finalBitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
-        val request = ImageRequest.Builder(context).data(imageUri.value).allowHardware(false).build()
+        val currentUri = imageUri.value ?: return@launch
+
+        val request = ImageRequest.Builder(context).data(currentUri).allowHardware(false).build()
         val result = context.imageLoader.execute(request)
         val originalBitmap = result.drawable?.toBitmap() ?: return@launch
 
+        // Canvas size
+        val canvasWidth = 512
+        val canvasHeight = 512
+        val finalBitmap = Bitmap.createBitmap(canvasWidth, canvasHeight, Bitmap.Config.ARGB_8888)
+        
         finalBitmap.applyCanvas {
             val paint = Paint().apply { isAntiAlias = true }
             val textPaint = Paint().apply {
                 isAntiAlias = true
-                textSize = 32f * context.resources.displayMetrics.density
+                textSize = 32f // Base text size in canvas units
                 textAlign = Paint.Align.CENTER
             }
-            val clearPaint = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) }
-            drawPaint(clearPaint)
 
-            if (isCropMode.value) {
-                clipRect(cropRect.value.left, cropRect.value.top, cropRect.value.right, cropRect.value.bottom)
-            }
+            // --- Draw Background Image ---
+            // 1. Calculate base scale to FIT the image into 512x512 initially (similar to ContentScale.Fit)
+            val baseScale = min(canvasWidth.toFloat() / originalBitmap.width, canvasHeight.toFloat() / originalBitmap.height)
+            
+            val currentState = _imageState.value
+
+            // Matrix logic:
+            // We want to apply: Translate(Center) -> UserTransforms -> Scale(Base) -> Translate(-Center) (Wait, no)
+            // The drawing logic on screen usually is: 
+            // Render at center. Apply scale/rotation around center.
+            // So:
+            // 1. Move to center of canvas (256, 256)
+            // 2. Apply User Offset
+            // 3. Apply User Rotation
+            // 4. Apply User Scale
+            // 5. Apply Base Scale (to bring image to "fit" size)
+            // 6. Draw Bitmap centered at (0,0) [so move by -w/2, -h/2]
 
             save()
-            translate(width / 2f + offset.value.x, height / 2f + offset.value.y)
-            rotate(rotation.value)
-            scale(scale.value, scale.value)
-            drawBitmap(originalBitmap, -originalBitmap.width / 2f, -originalBitmap.height / 2f, paint)
+            translate(canvasWidth / 2f, canvasHeight / 2f)
+            
+            // Apply User Transforms
+            translate(currentState.offset.x, currentState.offset.y)
+            rotate(currentState.rotation)
+            scale(currentState.scale, currentState.scale)
+
+            // Apply Base Scale
+            scale(baseScale, baseScale)
+
+            // Draw centered
+            translate(-originalBitmap.width / 2f, -originalBitmap.height / 2f)
+            drawBitmap(originalBitmap, 0f, 0f, paint)
             restore()
 
+            // --- Draw Texts ---
             texts.value.forEach { textData ->
                 save()
                 textPaint.color = textData.color.toArgb()
-                translate(width / 2f + textData.offset.x, height / 2f + textData.offset.y)
+                // Texts are also positioned relative to center in our logic (offset from (0,0))
+                // We translate to center first
+                translate(canvasWidth / 2f, canvasHeight / 2f)
+                
+                translate(textData.offset.x, textData.offset.y)
                 rotate(textData.rotation)
                 scale(textData.scale, textData.scale)
+                
                 drawText(textData.text, 0f, 0f, textPaint)
                 restore()
             }
@@ -154,7 +195,7 @@ class EditorViewModel @Inject constructor(
     private fun saveBitmapToTempFile(bitmap: Bitmap): File {
         val file = File(context.cacheDir, "${UUID.randomUUID()}.webp")
         FileOutputStream(file).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 90, out)
+            bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 85, out)
         }
         return file
     }

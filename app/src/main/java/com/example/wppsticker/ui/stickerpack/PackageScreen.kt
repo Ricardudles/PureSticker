@@ -11,16 +11,24 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -28,15 +36,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -58,6 +72,7 @@ fun PackageScreen(
     viewModel: PackageViewModel = hiltViewModel()
 ) {
     val stickerPackageState by viewModel.stickerPackage.collectAsState()
+    var showEditDialog by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -81,6 +96,93 @@ fun PackageScreen(
         }
     }
 
+    // Edit Dialog
+    if (showEditDialog && stickerPackageState is UiState.Success) {
+        val currentPackage = (stickerPackageState as UiState.Success).data.stickerPackage
+        
+        var editName by remember { mutableStateOf(currentPackage.name) }
+        var editAuthor by remember { mutableStateOf(currentPackage.author) }
+        var editEmail by remember { mutableStateOf(currentPackage.publisherEmail) }
+        var editWebsite by remember { mutableStateOf(currentPackage.publisherWebsite) }
+        var editPrivacyPolicy by remember { mutableStateOf(currentPackage.privacyPolicyWebsite) }
+        var editLicense by remember { mutableStateOf(currentPackage.licenseAgreementWebsite) }
+
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Package Details") },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    TextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        label = { Text("Package Name *") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editAuthor,
+                        onValueChange = { editAuthor = it },
+                        label = { Text("Author *") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editEmail,
+                        onValueChange = { editEmail = it },
+                        label = { Text("Email (Optional)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editWebsite,
+                        onValueChange = { editWebsite = it },
+                        label = { Text("Website (Optional)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        placeholder = { Text("https://...") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editPrivacyPolicy,
+                        onValueChange = { editPrivacyPolicy = it },
+                        label = { Text("Privacy Policy URL (Optional)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editLicense,
+                        onValueChange = { editLicense = it },
+                        label = { Text("License URL (Optional)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.updatePackageDetails(
+                        name = editName,
+                        author = editAuthor,
+                        email = editEmail,
+                        website = editWebsite,
+                        privacyPolicy = editPrivacyPolicy,
+                        license = editLicense
+                    )
+                    showEditDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             val title = if (stickerPackageState is UiState.Success) {
@@ -88,7 +190,16 @@ fun PackageScreen(
             } else {
                 ""
             }
-            TopAppBar(title = { Text(title) })
+            TopAppBar(
+                title = { Text(title) },
+                actions = {
+                    if (stickerPackageState is UiState.Success) {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit Package Details")
+                        }
+                    }
+                }
+            )
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { 
@@ -125,7 +236,10 @@ fun PackageScreen(
                     }
                 }
                 is UiState.Empty -> {
-                    Text("No stickers in this pack. Add one!")
+                    // Show empty state but allow editing package details or adding stickers
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("No stickers in this pack. Add one!")
+                    }
                 }
             }
         }
@@ -134,7 +248,7 @@ fun PackageScreen(
 
 @Composable
 private fun TrayIconInfo(file: File) {
-    val sizeInKb = file.length() / 1024
+    val sizeInKb = if (file.exists()) file.length() / 1024 else 0
     val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.absolutePath, options)
     val width = options.outWidth

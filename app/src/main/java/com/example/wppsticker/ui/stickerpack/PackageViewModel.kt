@@ -3,6 +3,7 @@ package com.example.wppsticker.ui.stickerpack
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.wppsticker.data.local.StickerPackage
 import com.example.wppsticker.data.local.StickerPackageWithStickers
 import com.example.wppsticker.domain.usecase.DeleteStickerUseCase
 import com.example.wppsticker.domain.usecase.GetStickerPackageWithStickersUseCase
@@ -36,26 +37,52 @@ class PackageViewModel @Inject constructor(
 
     private fun getStickerPackageDetails() {
         getStickerPackageWithStickersUseCase(packageId).onEach { packageWithStickers ->
-            if (packageWithStickers.stickers.isEmpty()) {
-                _stickerPackage.value = UiState.Empty
-            } else {
-                _stickerPackage.value = UiState.Success(packageWithStickers)
-            }
+            // Even if stickers are empty, we want to show the package details
+            // so user can edit them or add stickers.
+            _stickerPackage.value = UiState.Success(packageWithStickers)
         }.launchIn(viewModelScope)
     }
 
     fun deleteSticker(stickerId: Int) {
         viewModelScope.launch {
             deleteStickerUseCase(stickerId)
+            incrementPackageVersion()
+        }
+    }
+
+    fun updatePackageDetails(
+        name: String, 
+        author: String, 
+        email: String, 
+        website: String, 
+        privacyPolicy: String, 
+        license: String
+    ) = viewModelScope.launch {
+        val currentState = _stickerPackage.value
+        if (currentState is UiState.Success) {
+            val currentPackage = currentState.data.stickerPackage
             
-            // Update package version to notify WhatsApp of changes
-            val currentState = _stickerPackage.value
-            if (currentState is UiState.Success) {
-                val currentPackage = currentState.data.stickerPackage
-                val currentVersion = currentPackage.imageDataVersion.toIntOrNull() ?: 1
-                val newVersion = (currentVersion + 1).toString()
-                updateStickerPackageUseCase(currentPackage.copy(imageDataVersion = newVersion))
-            }
+            val updatedPackage = currentPackage.copy(
+                name = name,
+                author = author,
+                publisherEmail = email,
+                publisherWebsite = website,
+                privacyPolicyWebsite = privacyPolicy,
+                licenseAgreementWebsite = license
+            )
+            
+            updateStickerPackageUseCase(updatedPackage)
+            incrementPackageVersion()
+        }
+    }
+
+    private suspend fun incrementPackageVersion() {
+        val currentState = _stickerPackage.value
+        if (currentState is UiState.Success) {
+            val currentPackage = currentState.data.stickerPackage
+            val currentVersion = currentPackage.imageDataVersion.toIntOrNull() ?: 1
+            val newVersion = (currentVersion + 1).toString()
+            updateStickerPackageUseCase(currentPackage.copy(imageDataVersion = newVersion))
         }
     }
 }

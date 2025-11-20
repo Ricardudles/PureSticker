@@ -20,6 +20,7 @@ data class Sticker(
     val id: Int = 0,
     val packageId: Int,
     val imageFile: String,
+    val imageFileHash: String, // SHA-256 hash of the image file to detect duplicates
     val emojis: List<String>,
     val width: Int,
     val height: Int,

@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended") // Added for more icons like Crop
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
 
     // Hilt
@@ -81,6 +82,11 @@ dependencies {
     // Accompanist
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
+    // Image Cropper (CanHub)
+    implementation("com.github.CanHub:Android-Image-Cropper:4.4.0")
+
+    // Gson for JSON serialization (Backup/Restore)
+    implementation("com.google.code.gson:gson:2.10.1")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -16,10 +16,10 @@ import com.example.wppsticker.domain.usecase.CreateStickerPackageUseCase
 import com.example.wppsticker.domain.usecase.GetStickerPackagesUseCase
 import com.example.wppsticker.domain.usecase.GetStickerPackageWithStickersUseCase
 import com.example.wppsticker.domain.usecase.UpdateStickerPackageUseCase
-import com.example.wppsticker.util.ImageHelper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -31,11 +31,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.UUID
 import javax.inject.Inject
 
 private const val TAG = "StickerAppDebug"
+
+sealed class SaveStickerEvent {
+    data class ShowDuplicateDialog(val onConfirm: () -> Unit) : SaveStickerEvent()
+    data class ShowToast(val message: String) : SaveStickerEvent()
+}
 
 @HiltViewModel
 class SaveStickerViewModel @Inject constructor(
@@ -53,15 +60,15 @@ class SaveStickerViewModel @Inject constructor(
     private val _stickerPackages = MutableStateFlow<List<StickerPackage>>(emptyList())
     val stickerPackages = _stickerPackages.asStateFlow()
 
-    private val _isBusy = MutableStateFlow(false)
-    val isBusy = _isBusy.asStateFlow()
+    // Changed from isBusy to loadingMessage for better feedback
+    private val _loadingMessage = MutableStateFlow<String?>(null)
+    val loadingMessage = _loadingMessage.asStateFlow()
 
     private val _saveFinished = MutableStateFlow(false)
     val saveFinished = _saveFinished.asStateFlow()
 
-    // For validation errors (Toast/Snackbar)
-    private val _uiEvents = MutableSharedFlow<String>()
-    val uiEvents = _uiEvents.asSharedFlow()
+    private val _events = MutableSharedFlow<SaveStickerEvent>()
+    val events = _events.asSharedFlow()
 
     init {
         loadPackages()
@@ -85,42 +92,42 @@ class SaveStickerViewModel @Inject constructor(
         
         // --- LIMIT CHECK ---
         if (_stickerPackages.value.size >= 10) {
-            _uiEvents.emit("You have reached the limit of 10 Sticker Packs.")
+            _events.emit(SaveStickerEvent.ShowToast("You have reached the limit of 10 Sticker Packs."))
             return@launch
         }
         
         // --- VALIDATIONS ---
         if (name.isBlank()) {
-            _uiEvents.emit("Package Name is required.")
+            _events.emit(SaveStickerEvent.ShowToast("Package Name is required."))
             return@launch
         }
         if (name.length > 128) {
-            _uiEvents.emit("Package Name is too long (max 128 chars).")
+            _events.emit(SaveStickerEvent.ShowToast("Package Name is too long (max 128 chars)."))
             return@launch
         }
         if (author.isBlank()) {
-            _uiEvents.emit("Author is required.")
+            _events.emit(SaveStickerEvent.ShowToast("Author is required."))
             return@launch
         }
         if (author.length > 128) {
-             _uiEvents.emit("Author name is too long (max 128 chars).")
+             _events.emit(SaveStickerEvent.ShowToast("Author name is too long (max 128 chars)."))
              return@launch
         }
         if (email.isNotEmpty() && !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _uiEvents.emit("Invalid Email address.")
+            _events.emit(SaveStickerEvent.ShowToast("Invalid Email address."))
             return@launch
         }
         if (website.isNotEmpty() && !isValidUrl(website)) {
-            _uiEvents.emit("Website must start with http:// or https://")
+            _events.emit(SaveStickerEvent.ShowToast("Website must start with http:// or https://"))
             return@launch
         }
         if (privacyPolicy.isNotEmpty() && !isValidUrl(privacyPolicy)) {
-            _uiEvents.emit("Privacy Policy must start with http:// or https://")
+            _events.emit(SaveStickerEvent.ShowToast("Privacy Policy must start with http:// or https://"))
             return@launch
         }
         
         Log.d(TAG, "SaveStickerVM: Creating new package: $name by $author")
-        _isBusy.value = true
+        _loadingMessage.value = "Creating package..."
         
         val newPackage = StickerPackage(
             name = name, 
@@ -136,113 +143,134 @@ class SaveStickerViewModel @Inject constructor(
         val createdPackage = newPackage.copy(id = newId.toInt())
         onPackageCreated(createdPackage)
         Log.d(TAG, "SaveStickerVM: New package created.")
-        _isBusy.value = false
+        _loadingMessage.value = null
     }
 
-    fun saveSticker(stickerPackage: StickerPackage, emojis: String) = viewModelScope.launch {
+    fun saveSticker(stickerPackage: StickerPackage, emojis: String, force: Boolean = false): Job = viewModelScope.launch {
         // --- LIMIT CHECK ---
         val currentPackDetails = getStickerPackageWithStickersUseCase(stickerPackage.id).first()
         if (currentPackDetails.stickers.size >= 30) {
-             _uiEvents.emit("This pack has reached the limit of 30 stickers.")
+             _events.emit(SaveStickerEvent.ShowToast("This pack has reached the limit of 30 stickers."))
              return@launch
         }
 
         // --- VALIDATION ---
         val cleanedEmojis = emojis.trim()
         if (cleanedEmojis.isEmpty()) {
-            _uiEvents.emit("At least one emoji is required.")
+            _events.emit(SaveStickerEvent.ShowToast("At least one emoji is required."))
             return@launch
         }
         val emojiList = cleanedEmojis.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         
         if (emojiList.size > 3) {
-            _uiEvents.emit("Max 3 emojis allowed per sticker.")
+            _events.emit(SaveStickerEvent.ShowToast("Max 3 emojis allowed per sticker."))
             return@launch
         }
 
         Log.d(TAG, "SaveStickerVM: Saving sticker to package '${stickerPackage.name}'")
-        _isBusy.value = true
+        _loadingMessage.value = "Analyzing image..."
 
         withContext(Dispatchers.IO) {
             try {
-                val sourcePath = stickerUri.path ?: return@withContext
-                val sourceBitmap = BitmapFactory.decodeFile(sourcePath)
-                
-                if (sourceBitmap == null) {
-                    _uiEvents.emit("Error loading sticker image.")
-                    _isBusy.value = false
-                    return@withContext
-                }
+                val sourceFile = File(stickerUri.path!!)
+                val fileHash = calculateHash(sourceFile)
 
-                // 1. Process Sticker (512x512, < 100KB)
-                val finalFileName = "${UUID.randomUUID()}.webp"
-                val destinationFile = File(context.filesDir, finalFileName)
-                
-                val stickerFile = saveImageWithConstraints(
-                    bitmap = sourceBitmap,
-                    targetFile = destinationFile,
-                    targetWidth = 512,
-                    targetHeight = 512,
-                    maxSizeKb = 100
-                )
-
-                if (stickerFile == null) {
-                    _uiEvents.emit("Could not compress sticker under 100KB.")
-                    _isBusy.value = false
-                    return@withContext
-                }
-
-                Log.d(TAG, "SaveStickerVM: Sticker saved: ${stickerFile.name} Size: ${stickerFile.length() / 1024}KB")
-                
-                // Delete temp file from editor if needed
-                File(sourcePath).delete()
-
-                val sticker = Sticker(
-                    packageId = stickerPackage.id, 
-                    imageFile = stickerFile.name, 
-                    emojis = emojiList,
-                    width = 512, 
-                    height = 512,
-                    sizeInKb = stickerFile.length() / 1024
-                )
-                addStickerUseCase(sticker)
-
-                // Increment version
-                val currentVersion = stickerPackage.imageDataVersion.toIntOrNull() ?: 1
-                val newVersion = (currentVersion + 1).toString()
-                var updatedPackage = stickerPackage.copy(imageDataVersion = newVersion)
-
-                // 2. Process Tray Icon if needed (96x96, < 50KB)
-                if (updatedPackage.trayImageFile.isEmpty()) {
-                    Log.d(TAG, "SaveStickerVM: Setting new tray icon.")
-                    val trayFileName = "${UUID.randomUUID()}_tray.webp"
-                    val trayFileTarget = File(context.filesDir, trayFileName)
-
-                    val trayFile = saveImageWithConstraints(
-                        bitmap = sourceBitmap, // Use original bitmap to resize down directly
-                        targetFile = trayFileTarget,
-                        targetWidth = 96,
-                        targetHeight = 96,
-                        maxSizeKb = 50
-                    )
-                    
-                    if (trayFile != null) {
-                        updatedPackage = updatedPackage.copy(trayImageFile = trayFile.name)
-                    } else {
-                        Log.e(TAG, "Failed to generate tray icon under 50KB")
+                // --- DUPLICATE CHECK ---
+                if (!force) {
+                    val isDuplicate = currentPackDetails.stickers.any { it.imageFileHash == fileHash }
+                    if (isDuplicate) {
+                        _events.emit(SaveStickerEvent.ShowDuplicateDialog {
+                            // User confirmed, run the save again with force = true
+                            saveSticker(stickerPackage, emojis, force = true)
+                        })
+                        _loadingMessage.value = null // Stop loading while dialog is shown
+                        return@withContext
                     }
                 }
                 
-                updateStickerPackageUseCase(updatedPackage)
-                _saveFinished.value = true
+                proceedWithSave(stickerPackage, emojiList, sourceFile, fileHash)
 
-            } catch (e: Exception) {
+            } catch(e: Exception) {
                 Log.e(TAG, "Error saving sticker", e)
-                _uiEvents.emit("Error saving sticker: ${e.message}")
+                _events.emit(SaveStickerEvent.ShowToast("Error saving sticker: ${e.message}"))
             } finally {
-                _isBusy.value = false
+                _loadingMessage.value = null
             }
         }
+    }
+    
+    private suspend fun proceedWithSave(stickerPackage: StickerPackage, emojis: List<String>, sourceFile: File, fileHash: String) {
+        _loadingMessage.value = "Processing sticker..."
+        val sourceBitmap = BitmapFactory.decodeFile(sourceFile.absolutePath)
+        
+        if (sourceBitmap == null) {
+            _events.emit(SaveStickerEvent.ShowToast("Error loading sticker image."))
+            return
+        }
+
+        // 1. Process Sticker (512x512, < 100KB)
+        _loadingMessage.value = "Optimizing sticker..."
+        val finalFileName = "${UUID.randomUUID()}.webp"
+        val destinationFile = File(context.filesDir, finalFileName)
+        
+        val stickerFile = saveImageWithConstraints(
+            bitmap = sourceBitmap,
+            targetFile = destinationFile,
+            targetWidth = 512,
+            targetHeight = 512,
+            maxSizeKb = 100
+        )
+
+        if (stickerFile == null) {
+            _events.emit(SaveStickerEvent.ShowToast("Could not compress sticker under 100KB."))
+            return
+        }
+
+        Log.d(TAG, "SaveStickerVM: Sticker saved: ${stickerFile.name} Size: ${stickerFile.length() / 1024}KB")
+        
+        // Delete temp file from editor if needed
+        // sourceFile.delete() // Let editor handle its own cache, or delete here if passed by uri
+
+        val sticker = Sticker(
+            packageId = stickerPackage.id, 
+            imageFile = stickerFile.name, 
+            imageFileHash = fileHash,
+            emojis = emojis,
+            width = 512, 
+            height = 512,
+            sizeInKb = stickerFile.length() / 1024
+        )
+        addStickerUseCase(sticker)
+
+        // Increment version
+        val currentVersion = stickerPackage.imageDataVersion.toIntOrNull() ?: 1
+        val newVersion = (currentVersion + 1).toString()
+        var updatedPackage = stickerPackage.copy(imageDataVersion = newVersion)
+
+        // 2. Process Tray Icon if needed (96x96, < 50KB)
+        if (updatedPackage.trayImageFile.isEmpty()) {
+            Log.d(TAG, "SaveStickerVM: Setting new tray icon.")
+            _loadingMessage.value = "Generating tray icon..."
+            val trayFileName = "${UUID.randomUUID()}_tray.webp"
+            val trayFileTarget = File(context.filesDir, trayFileName)
+
+            val trayFile = saveImageWithConstraints(
+                bitmap = sourceBitmap, // Use original bitmap to resize down directly
+                targetFile = trayFileTarget,
+                targetWidth = 96,
+                targetHeight = 96,
+                maxSizeKb = 50
+            )
+            
+            if (trayFile != null) {
+                updatedPackage = updatedPackage.copy(trayImageFile = trayFile.name)
+            } else {
+                Log.e(TAG, "Failed to generate tray icon under 50KB")
+            }
+        }
+        
+        updateStickerPackageUseCase(updatedPackage)
+        _saveFinished.value = true
     }
 
     /**
@@ -267,9 +295,6 @@ class SaveStickerViewModel @Inject constructor(
 
             do {
                 stream = ByteArrayOutputStream()
-                // Using WEBP_LOSSY as it's standard for stickers (supports transparency)
-                // API 30+ has WEBP_LOSSY, below is WEBP. 
-                // Using simply WEBP for compatibility (it defaults to lossy with quality param).
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
                     resizedBitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, stream)
                 } else {
@@ -295,6 +320,24 @@ class SaveStickerViewModel @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error in saveImageWithConstraints", e)
             return null
+        }
+    }
+    
+    @OptIn(ExperimentalStdlibApi::class)
+    private fun calculateHash(file: File): String {
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            FileInputStream(file).use { fis ->
+                val buffer = ByteArray(8192)
+                var bytesRead = fis.read(buffer)
+                while(bytesRead != -1) {
+                    digest.update(buffer, 0, bytesRead)
+                    bytesRead = fis.read(buffer)
+                }
+            }
+            digest.digest().toHexString()
+        } catch (e: Exception) {
+            ""
         }
     }
 

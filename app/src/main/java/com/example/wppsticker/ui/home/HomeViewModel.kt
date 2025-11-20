@@ -1,6 +1,5 @@
 package com.example.wppsticker.ui.home
 
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -8,11 +7,12 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.wppsticker.data.local.StickerPackage
+import com.example.wppsticker.data.local.StickerPackageWithStickers
 import com.example.wppsticker.domain.repository.StickerRepository
 import com.example.wppsticker.domain.usecase.CreateStickerPackageUseCase
 import com.example.wppsticker.domain.usecase.DeleteStickerPackageUseCase
 import com.example.wppsticker.domain.usecase.GetStickerPackageWithStickersUseCase
-import com.example.wppsticker.domain.usecase.GetStickerPackagesUseCase
+import com.example.wppsticker.domain.usecase.GetStickerPackagesWithStickersUseCase
 import com.example.wppsticker.util.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,7 +31,7 @@ private const val TAG = "StickerAppDebug"
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getStickerPackagesUseCase: GetStickerPackagesUseCase,
+    private val getStickerPackagesWithStickersUseCase: GetStickerPackagesWithStickersUseCase,
     private val deleteStickerPackageUseCase: DeleteStickerPackageUseCase,
     private val getStickerPackageWithStickersUseCase: GetStickerPackageWithStickersUseCase,
     private val createStickerPackageUseCase: CreateStickerPackageUseCase,
@@ -39,8 +39,9 @@ class HomeViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _stickerPackages = MutableStateFlow<UiState<List<StickerPackage>>>(UiState.Loading)
-    val stickerPackages: StateFlow<UiState<List<StickerPackage>>> = _stickerPackages.asStateFlow()
+    // Changed to list of StickerPackageWithStickers to support preview images
+    private val _stickerPackages = MutableStateFlow<UiState<List<StickerPackageWithStickers>>>(UiState.Loading)
+    val stickerPackages: StateFlow<UiState<List<StickerPackageWithStickers>>> = _stickerPackages.asStateFlow()
 
     private val _sendIntent = MutableStateFlow<Intent?>(null)
     val sendIntent: StateFlow<Intent?> = _sendIntent.asStateFlow()
@@ -53,7 +54,8 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun getStickerPackages() {
-        getStickerPackagesUseCase().onEach { packages ->
+        // Use the new UseCase that returns packages WITH stickers
+        getStickerPackagesWithStickersUseCase().onEach { packages ->
             _stickerPackages.value = if (packages.isEmpty()) UiState.Empty else UiState.Success(packages)
         }.launchIn(viewModelScope)
     }
@@ -90,10 +92,6 @@ class HomeViewModel @Inject constructor(
             _uiEvents.emit("A sticker pack needs a tray icon.")
             return@launch
         }
-
-        // Size check (Total package size recommendation is vague, but individual stickers must be < 100KB)
-        // We already check individual sticker size on SaveStickerViewModel.
-        // However, let's double check tray icon existence and valid format if possible (we assume WebP).
 
         val identifier = stickerPackage.stickerPackage.identifier // Use UUID identifier
 
