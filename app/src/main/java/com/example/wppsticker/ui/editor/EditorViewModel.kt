@@ -256,6 +256,10 @@ class EditorViewModel @Inject constructor(
             it.copy(offset = finalOffset, scale = rawScale, rotation = finalRotation)
         }
     }
+    
+    fun onNavigatedToSave() {
+        _navigateToSave.value = null
+    }
 
     fun onSaveAndContinue() = viewModelScope.launch {
         _isBusy.value = true
@@ -273,7 +277,7 @@ class EditorViewModel @Inject constructor(
             val paint = Paint().apply { isAntiAlias = true }
             val textPaint = Paint().apply {
                 isAntiAlias = true
-                textSize = 32f 
+                textSize = 32f // Fixed base size matching the UI calculation
                 textAlign = Paint.Align.CENTER
             }
 
@@ -294,11 +298,11 @@ class EditorViewModel @Inject constructor(
                 save()
                 textPaint.color = textData.color.toArgb()
                 
-                // Apply correct font mapping
+                // Ensure font matching matches StickerTextDisplay in UI
                 textPaint.typeface = when(textData.fontIndex) {
                     1 -> Typeface.SERIF
                     2 -> Typeface.MONOSPACE
-                    3 -> Typeface.create("cursive", Typeface.ITALIC) // Correctly request "cursive" family
+                    3 -> Typeface.create("cursive", Typeface.ITALIC)
                     4 -> Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
                     else -> Typeface.SANS_SERIF 
                 }
@@ -307,7 +311,10 @@ class EditorViewModel @Inject constructor(
                 translate(textData.offset.x, textData.offset.y)
                 rotate(textData.rotation)
                 scale(textData.scale, textData.scale)
-                drawText(textData.text, 0f, 0f, textPaint)
+                // Apply a small vertical offset to center text vertically based on baseline
+                val fontMetrics = textPaint.fontMetrics
+                val verticalOffset = (fontMetrics.descent - fontMetrics.ascent) / 2 - fontMetrics.descent
+                drawText(textData.text, 0f, verticalOffset, textPaint)
                 restore()
             }
         }

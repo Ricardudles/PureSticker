@@ -9,12 +9,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -177,7 +177,16 @@ fun SaveStickerScreen(
 
     // --- Main UI ---
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Save Sticker") }) }
+        topBar = { 
+            TopAppBar(
+                title = { Text("Save Sticker") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            ) 
+        }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             Column(
@@ -260,8 +269,6 @@ fun SaveStickerScreen(
                 }
             }
 
-            // Removed simple CircularProgressIndicator as we now use LoadingDialog
-            
             if (showEmojiPicker) {
                 EmojiPickerSheet(
                     selectedEmojis = selectedEmojis,

@@ -1,133 +1,92 @@
-# Documentação Técnica: WppSticker
+# Documentação do Projeto WppSticker
 
-**Versão:** 1.0 (Pós-Refatoração Final)
+## Visão Geral
+WppSticker é um aplicativo Android para criação e gerenciamento de pacotes de figurinhas (stickers) para WhatsApp. O app permite criar pacotes, adicionar figurinhas a partir de imagens da galeria, editar essas imagens (recorte, rotação, adição de texto) e enviá-las para o WhatsApp.
 
-## 1. Visão Geral
+## Tecnologias Utilizadas
+- **Linguagem:** Kotlin
+- **UI:** Jetpack Compose
+- **Injeção de Dependência:** Hilt
+- **Navegação:** Jetpack Navigation Compose
+- **Persistência de Dados:** Room Database
+- **Imagens:** Coil (carregamento), CanHub Image Cropper (recorte inicial), Bitmap/Canvas (edição final)
+- **Arquitetura:** MVVM (Model-View-ViewModel)
 
-O WppSticker é um aplicativo Android nativo, desenvolvido em Kotlin e Jetpack Compose, que permite aos usuários criar, editar e gerenciar pacotes de figurinhas (stickers) para o WhatsApp. O projeto segue uma arquitetura moderna e limpa (MVVM+) e foi projetado para fornecer um fluxo de usuário intuitivo, desde a seleção de uma imagem até a exportação final e envio para o WhatsApp.
+## Estrutura do Projeto (`:app`)
 
-## 2. Estrutura do Projeto e Arquitetura
+### Camada de Dados (`data`)
+- **Local:**
+    - `StickerDatabase`: Banco de dados Room.
+    - `StickerDao`: Interface de acesso aos dados.
+    - `StickerPackage`: Entidade que representa um pacote de figurinhas.
+    - `Sticker`: Entidade que representa uma figurinha individual.
+- **Repositório:**
+    - `StickerRepository`: Abstração para acesso aos dados (implementado em `StickerRepositoryImpl`).
+    - `BackupRepository`: Gerencia backup e restauração (JSON + arquivos).
 
-O aplicativo utiliza uma variação da Clean Architecture, separando as responsabilidades em três camadas principais: `data`, `domain`, e `ui`.
+### Camada de Domínio (`domain`)
+- Contém UseCases para regras de negócio (ex: `CreateStickerPackageUseCase`, `AddStickerUseCase`).
 
-### Diagrama de Arquitetura (Fluxo de Dados)
+### Camada de UI (`ui`)
+- **Home (`ui.home`):**
+    - `HomeScreen`: Lista os pacotes de figurinhas criados. Permite criar novo pacote, excluir e enviar para o WhatsApp.
+    - `HomeViewModel`: Gerencia o estado da lista de pacotes.
+- **Editor (`ui.editor`) - *Totalmente Revampado*:**
+    - **`EditorScreen`**:
+        - Implementa um "Workspace" quadrado com bordas tracejadas (guia de corte).
+        - Permite zoom, pan e rotação da imagem de fundo com gestos (pinça).
+        - **Snap to Grid Inteligente**: "Imã" configurável (5 níveis de força) que alinha rotação (0/90/180) e bordas da imagem ao quadrado.
+        - **Adição de Texto**: Diálogo para adicionar texto com validação (não permite vazio).
+        - **Manipulação de Texto**: Textos podem ser movidos, rotacionados e redimensionados (gesto ou slider). Suporte a múltiplas fontes e cores.
+        - **Painel Inferior Unificado**: Alterna contextualmente entre controles de texto (quando selecionado) e controles de Snap (quando imagem ativa).
+        - **Proteção**: Botão "Voltar" interceptado para evitar perda acidental de edição.
+    - **`EditorViewModel`**:
+        - Gerencia o estado da edição (`ImageState`, lista de `TextData`).
+        - Lógica de "Snap" com separação entre valores brutos e visuais para movimento fluido.
+        - **Renderização Final**: Reconstrói a cena em um `Bitmap` 512x512 usando `Canvas` nativo, garantindo fidelidade WYSIWYG (What You See Is What You Get), incluindo fontes personalizadas.
+    - `TextData`: Modelo para textos (conteúdo, cor, posição, escala, rotação, fonte).
+    - `ImageState`: Modelo para o estado da imagem de fundo.
+- **Pacote (`ui.stickerpack`):**
+    - `PackageScreen`: Detalhes de um pacote, lista as figurinhas contidas. Permite editar metadados do pacote.
+    - `SaveStickerScreen`: Tela final antes de salvar. Permite escolher o pacote de destino e adicionar emojis (obrigatório pelo WhatsApp).
+    - `EmojiPickerSheet`: BottomSheet para seleção de emojis categorizados.
 
-```
-   [UI Layer (Compose Screens)]
-             |
-             v
-[ViewModels (Android ViewModel)]
-             |
-             v
-   [Use Cases (Domain Layer)]
-             |
-             v
- [Repository Interface (Domain Layer)]
-             |
-             v
-[Repository Implementation (Data Layer)]
-             |
-             v
-   [Room DAO (Data Layer)]
-             |
-             v
-      [SQLite Database]
-```
+### Navegação (`nav`)
+- `NavGraph`: Define as rotas e argumentos da navegação.
 
-### Detalhamento dos Pacotes
+## Funcionalidades Recentes Implementadas (Histórico de Mudanças)
 
-- **`data/`**: Camada de dados. É a fonte da verdade para todos os dados do aplicativo.
-  - `local/`: Contém as definições do Room, incluindo:
-    - `Sticker.kt`, `StickerPackage.kt`: Entidades do banco de dados.
-    - `StickerDao.kt`: Data Access Object que define as operações CRUD.
-    - `AppDatabase.kt`: A classe principal do banco de dados Room.
-  - `repository/`: Implementação concreta do repositório.
-    - `StickerRepositoryImpl.kt`: Implementa a interface `StickerRepository`, usando o `StickerDao` para executar as operações.
+### 1. Editor de Imagem ("Workspace")
+- Substituída a biblioteca de crop simples por um **ambiente de edição manual**.
+- O usuário vê um quadrado guia (512x512) e pode ajustar a imagem livremente dentro dele.
+- **Performance:** Otimizações com `graphicsLayer` e `clipToBounds` para mover textos e imagens gigantes sem lag.
 
-- **`domain/`**: Camada de domínio (ou negócio). Não tem dependências do Android.
-  - `repository/`: Define as abstrações (interfaces) para os repositórios. `StickerRepository.kt`.
-  - `usecase/`: Classes que encapsulam uma única ação de negócio. Exemplos: `AddStickerUseCase`, `GetStickerPackagesUseCase`.
+### 2. Ferramenta de Texto
+- Botão dedicado (ícone 'T') na barra superior.
+- Diálogo de entrada com validação.
+- **Controles:** Slider de tamanho, Paleta de Cores, Seletor de Fontes (Default, Serif, Monospace, Cursive, Bold).
+- Textos são objetos independentes na tela, selecionáveis por toque.
 
-- **`ui/`**: Camada de UI. Contém todas as telas (Composables) e seus ViewModels.
-  - `home/`: Tela principal que lista os pacotes (`HomeScreen`).
-  - `stickerpack/`: Telas relacionadas ao gerenciamento de pacotes e salvamento de figurinhas (`PackageScreen`, `SaveStickerScreen`).
-  - `editor/`: A tela de edição de imagens (`EditorScreen`).
+### 3. Snap to Grid (Alinhamento Magnético)
+- Funcionalidade que "atrai" a imagem para ângulos retos e alinha as bordas ao quadrado de corte.
+- **Ajustável:** 5 níveis de força selecionáveis na barra inferior.
+- **Lógica Suave:** Implementação que evita que a imagem fique "travada" no imã, permitindo ajuste fino.
 
-- **`di/`**: Módulos do Hilt para injeção de dependência.
-  - `DatabaseModule.kt`: Prova o `AppDatabase` e o `StickerDao`.
-  - `RepositoryModule.kt`: Prova a implementação `StickerRepositoryImpl` para a interface `StickerRepository`.
+### 4. Fluxo de Salvamento
+- Geração de imagem final 512x512px em WebP.
+- Validação de tamanho (< 100KB) e dimensões estritas exigidas pelo WhatsApp.
+- Compressão inteligente (loop de qualidade) para garantir o tamanho do arquivo.
+- Criação automática de ícone de bandeja (tray icon) 96x96px.
+- Verificação de duplicatas por Hash SHA-256 para evitar figurinhas repetidas no mesmo pacote.
 
-- **`nav/`**: Orquestra a navegação com o Navigation Compose (`NavGraph.kt`, `Screen.kt`).
+### 5. Interface e UX
+- Padronização dos painéis de controle na parte inferior da tela.
+- Interceptação do botão "Voltar" durante a edição.
+- Ícones intuitivos e feedback visual (toasts, loadings).
 
-- **`provider/`**: Contém o `StickerContentProvider`, essencial para a integração com o WhatsApp.
+## Próximos Passos / Pendências
+- Refinar ainda mais a paridade visual das fontes cursivas entre a tela de edição (Compose) e o Canvas de salvamento (Native Paint), garantindo 100% de igualdade em todos os dispositivos.
+- Implementar sistema de backup/restore completo (estrutura já iniciada).
 
-- **`util/`**: Classes utilitárias reutilizáveis.
-  - `UiState.kt`: Sealed class para gerenciamento de estado da UI (Loading, Success, Empty).
-  - `ImageHelper.kt`: Funções auxiliares para manipulação de bitmaps (ex: redimensionamento).
-
-## 3. Funcionalidades Detalhadas
-
-### 3.1. Fluxo Principal: Criação de Figurinha
-
-O fluxo de trabalho foi projetado para ser centrado no usuário, começando com a intenção de criar uma figurinha.
-
-1.  **Início (`HomeScreen`):** O usuário clica no FloatingActionButton (+).
-2.  **Seleção:** O seletor de imagens da galeria é aberto.
-3.  **Edição (`EditorScreen`):** A imagem selecionada é carregada na tela de edição.
-    - **Manipulação de Gestos:** A imagem de fundo pode ser movida (pan), redimensionada (zoom) e rotacionada com gestos `detectTransformGestures`.
-    - **Adição de Texto:** Múltiplos textos podem ser adicionados. Cada texto pode ser selecionado e manipulado individualmente. A UI fornece feedback visual (borda amarela) para o texto selecionado.
-    - **Seletor de Cores:** Quando um texto é selecionado, um seletor de cores aparece, indicando a cor atual e permitindo a troca.
-    - **Corte:** O usuário pode ativar um modo de corte que exibe um retângulo com alças ajustáveis.
-4.  **Finalização (`SaveStickerScreen`):**
-    - Após a edição, o bitmap final (512x512) é gerado e passado para esta tela.
-    - O usuário pode atribuir emojis e escolher um pacote existente em um dropdown ou criar um novo pacote através de um diálogo.
-    - Ao salvar, a `SaveStickerViewModel` move o arquivo para o armazenamento permanente e atualiza o banco de dados.
-
-### 3.2. Integração com WhatsApp
-
-Esta é a funcionalidade mais complexa e crucial.
-
-- **`StickerContentProvider`:** Atua como a ponte segura entre nosso aplicativo e o WhatsApp. Ele é registrado no `AndroidManifest.xml` com uma autoridade única (`${applicationId}.provider`).
-- **Método `query()`:** Não é utilizado no fluxo de envio, portanto, foi simplificado para lançar uma exceção. O WhatsApp obtém as informações necessárias através de `extras` na `Intent`.
-- **Método `openFile()`:** É o responsável por servir os arquivos de imagem (PNG). Ele recebe uma URI do WhatsApp, extrai o nome do arquivo e o localiza no diretório interno do aplicativo (`context.filesDir`).
-- **`Intent` de Envio:** No `HomeViewModel`, a função `sendStickerPack` constrói a `Intent` `com.whatsapp.intent.action.ENABLE_STICKER_PACK`. Os `extras` mais importantes são:
-  - `sticker_pack_id`: O ID único do pacote.
-  - `sticker_pack_authority`: A autoridade do nosso `ContentProvider`.
-  - `sticker_pack_name`: O nome do pacote.
-
-## 4. Gerenciamento de Estado
-
-As telas que exibem dados assíncronos (`HomeScreen` e `PackageScreen`) usam uma `sealed class UiState<T>` para modelar o estado da UI. Isso permite que a UI reaja de forma declarativa, exibindo:
-
-- Um `CircularProgressIndicator` durante o `UiState.Loading`.
-- A lista de dados no `UiState.Success`.
-- Uma mensagem informativa durante o `UiState.Empty`.
-
-## 5. Pontos a Melhorar (O que falta fazer)
-
-Embora o aplicativo esteja funcional, há várias áreas para melhorias futuras e para elevar ainda mais a qualidade:
-
-- **Testes:** O projeto não possui uma suíte de testes. Seria crucial adicionar:
-  - **Testes Unitários:** Para ViewModels, UseCases e Repositórios, validando a lógica de negócio e o fluxo de dados.
-  - **Testes de UI (Compose):** Para verificar se as telas reagem corretamente às mudanças de estado.
-  - **Testes de Instrumentação:** Para validar a lógica do banco de dados (DAO) e do `ContentProvider`.
-
-- **Editor de Imagem Avançado:**
-  - **Fontes de Texto:** Permitir que o usuário escolha entre diferentes fontes para o texto.
-  - **Seleção de Cor:** Substituir a lista de cores pré-definidas por um seletor de cores completo (color picker).
-  - **Desfazer/Refazer:** Implementar uma pilha de ações para permitir que o usuário desfaça e refaça operações de edição.
-
-- **Performance:**
-  - A manipulação de bitmaps na UI thread, especialmente durante a exportação, pode causar congelamentos. A renderização do `Bitmap` final deveria ser movida para uma corrotina em um dispatcher de background (`Dispatchers.Default`).
-
-- **UX e Polimento Visual:**
-  - **Ícone da Bandeja:** Permitir que o usuário escolha qualquer figurinha do pacote para ser o ícone da bandeja, não apenas a primeira.
-  - **Animações:** Adicionar transições de tela e animações de UI para uma experiência mais fluida.
-
-## 6. Guia de Build e Setup
-
-1.  Clone o repositório.
-2.  Abra o projeto no Android Studio.
-3.  Aguarde o Gradle Sync ser concluído. As dependências estão listadas nos arquivos `build.gradle.kts`.
-4.  Compile e execute o aplicativo em um emulador ou dispositivo físico.
-5.  **Requisito:** Para testar a funcionalidade de envio, o WhatsApp (versão de consumidor ou Business) precisa estar instalado no dispositivo de teste.
+---
+*Documentação atualizada em: [Data Atual]*

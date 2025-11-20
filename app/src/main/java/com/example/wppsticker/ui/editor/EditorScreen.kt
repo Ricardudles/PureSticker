@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -119,6 +118,7 @@ fun EditorScreen(
         navigateToSave?.let {
             val encodedUri = URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
             navController.navigate("${Screen.SaveSticker.name}/$encodedUri")
+            viewModel.onNavigatedToSave() // Reset navigation event
         }
     }
 
@@ -280,7 +280,15 @@ fun EditorScreen(
                 val canvasSize = 512f
                 val scaleToCanvas = remember(workspaceSize) { canvasSize / with(density) { workspaceSize.toPx() } }
                 val scaleFromCanvas = remember(workspaceSize) { with(density) { workspaceSize.toPx() } / canvasSize }
-                val textFontSize = (workspaceSize.value * 0.0625f).sp
+                
+                // Calculate font size in SP so it visually matches the 32px base size on the 512px canvas
+                // ignoring the user's font scaling preference to ensure WYSIWYG.
+                val textFontSize = remember(workspaceSize) {
+                    with(density) {
+                        val targetHeightPx = 32f * scaleFromCanvas
+                        targetHeightPx.toSp()
+                    }
+                }
 
                 Box(
                     modifier = Modifier
@@ -486,7 +494,8 @@ fun StickerTextDisplay(text: String, color: Color, fontSize: TextUnit, fontIndex
         fontFamily = fontFamily,
         fontWeight = fontWeight,
         fontStyle = fontStyle,
-        modifier = Modifier.padding(4.dp)
+        modifier = Modifier.padding(4.dp),
+        lineHeight = fontSize // Ensure line height matches font size for compact rendering
     )
 }
 
