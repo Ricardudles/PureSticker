@@ -1,92 +1,71 @@
 # Documentação do Projeto WppSticker
 
-## Visão Geral
-WppSticker é um aplicativo Android para criação e gerenciamento de pacotes de figurinhas (stickers) para WhatsApp. O app permite criar pacotes, adicionar figurinhas a partir de imagens da galeria, editar essas imagens (recorte, rotação, adição de texto) e enviá-las para o WhatsApp.
+Este documento resume o estado atual do desenvolvimento, as decisões técnicas tomadas e as funcionalidades implementadas até o momento. Serve como um ponto de restauração de contexto para futuras sessões de desenvolvimento.
 
-## Tecnologias Utilizadas
-- **Linguagem:** Kotlin
-- **UI:** Jetpack Compose
-- **Injeção de Dependência:** Hilt
-- **Navegação:** Jetpack Navigation Compose
-- **Persistência de Dados:** Room Database
-- **Imagens:** Coil (carregamento), CanHub Image Cropper (recorte inicial), Bitmap/Canvas (edição final)
-- **Arquitetura:** MVVM (Model-View-ViewModel)
+## 1. Visão Geral
+O **WppSticker** é um aplicativo Android para criação, gerenciamento e compartilhamento de pacotes de figurinhas para o WhatsApp. Ele permite aos usuários importar imagens, editá-las (cortar, adicionar texto), organizar em pacotes e enviar diretamente para o WhatsApp.
 
-## Estrutura do Projeto (`:app`)
+## 2. Stack Tecnológica
+-   **Linguagem:** Kotlin
+-   **UI Toolkit:** Jetpack Compose
+-   **Arquitetura:** MVVM (Model-View-ViewModel) com Clean Architecture
+-   **Injeção de Dependência:** Hilt
+-   **Banco de Dados:** Room
+-   **Navegação:** Jetpack Navigation Compose
+-   **Carregamento de Imagens:** Coil
+-   **Edição de Imagem:** Canvas API (Nativo) + Android-Image-Cropper (CanHub)
+-   **Assincronismo:** Coroutines & Flow
 
-### Camada de Dados (`data`)
-- **Local:**
-    - `StickerDatabase`: Banco de dados Room.
-    - `StickerDao`: Interface de acesso aos dados.
-    - `StickerPackage`: Entidade que representa um pacote de figurinhas.
-    - `Sticker`: Entidade que representa uma figurinha individual.
-- **Repositório:**
-    - `StickerRepository`: Abstração para acesso aos dados (implementado em `StickerRepositoryImpl`).
-    - `BackupRepository`: Gerencia backup e restauração (JSON + arquivos).
+## 3. Funcionalidades Implementadas
 
-### Camada de Domínio (`domain`)
-- Contém UseCases para regras de negócio (ex: `CreateStickerPackageUseCase`, `AddStickerUseCase`).
+### 3.1. Tela Inicial (`HomeScreen`)
+-   **Lista de Pacotes:** Exibe os pacotes criados em `Cards` modernos com fundo escuro.
+-   **Prévia de Figurinhas:** Mostra as primeiras 6 figurinhas de cada pacote diretamente no card.
+-   **Ações Rápidas:** Botões para enviar para o WhatsApp e excluir o pacote.
+-   **Design:** Tema escuro (`#121212`), sem ícone de bandeja redundante, foco no conteúdo.
 
-### Camada de UI (`ui`)
-- **Home (`ui.home`):**
-    - `HomeScreen`: Lista os pacotes de figurinhas criados. Permite criar novo pacote, excluir e enviar para o WhatsApp.
-    - `HomeViewModel`: Gerencia o estado da lista de pacotes.
-- **Editor (`ui.editor`) - *Totalmente Revampado*:**
-    - **`EditorScreen`**:
-        - Implementa um "Workspace" quadrado com bordas tracejadas (guia de corte).
-        - Permite zoom, pan e rotação da imagem de fundo com gestos (pinça).
-        - **Snap to Grid Inteligente**: "Imã" configurável (5 níveis de força) que alinha rotação (0/90/180) e bordas da imagem ao quadrado.
-        - **Adição de Texto**: Diálogo para adicionar texto com validação (não permite vazio).
-        - **Manipulação de Texto**: Textos podem ser movidos, rotacionados e redimensionados (gesto ou slider). Suporte a múltiplas fontes e cores.
-        - **Painel Inferior Unificado**: Alterna contextualmente entre controles de texto (quando selecionado) e controles de Snap (quando imagem ativa).
-        - **Proteção**: Botão "Voltar" interceptado para evitar perda acidental de edição.
-    - **`EditorViewModel`**:
-        - Gerencia o estado da edição (`ImageState`, lista de `TextData`).
-        - Lógica de "Snap" com separação entre valores brutos e visuais para movimento fluido.
-        - **Renderização Final**: Reconstrói a cena em um `Bitmap` 512x512 usando `Canvas` nativo, garantindo fidelidade WYSIWYG (What You See Is What You Get), incluindo fontes personalizadas.
-    - `TextData`: Modelo para textos (conteúdo, cor, posição, escala, rotação, fonte).
-    - `ImageState`: Modelo para o estado da imagem de fundo.
-- **Pacote (`ui.stickerpack`):**
-    - `PackageScreen`: Detalhes de um pacote, lista as figurinhas contidas. Permite editar metadados do pacote.
-    - `SaveStickerScreen`: Tela final antes de salvar. Permite escolher o pacote de destino e adicionar emojis (obrigatório pelo WhatsApp).
-    - `EmojiPickerSheet`: BottomSheet para seleção de emojis categorizados.
+### 3.2. Tela de Detalhes do Pacote (`PackageScreen`)
+-   **Grid de Figurinhas:** Exibição limpa das figurinhas em 3 colunas.
+-   **Seleção Múltipla:** Toque longo ativa o modo de seleção para excluir várias figurinhas de uma vez.
+-   **Feedback Visual:** Figurinhas selecionadas recebem overlay e ícone de check.
+-   **Edição de Metadados:** Permite editar nome, autor e links do pacote.
 
-### Navegação (`nav`)
-- `NavGraph`: Define as rotas e argumentos da navegação.
+### 3.3. Editor de Figurinhas (`EditorScreen`)
+-   **WYSIWYG:** O que você vê na tela é exatamente o que será salvo (fontes e proporções consistentes).
+-   **Ferramentas:**
+    -   **Corte:** Integração com CropImage.
+    -   **Texto:** Adição de textos com múltiplas fontes, cores e redimensionamento/rotação.
+    -   **Imã (Snap):** Sistema inteligente de alinhamento (snap) para centralizar e alinhar elementos.
+-   **Interface:** Dock flutuante na parte inferior para ferramentas, maximizando a área de trabalho.
 
-## Funcionalidades Recentes Implementadas (Histórico de Mudanças)
+### 3.4. Salvamento (`SaveStickerScreen`)
+-   **Seleção de Pacote:** Escolha fácil do pacote de destino ou criação de um novo.
+-   **Emojis:** Seletor de emojis completo e categorizado para metadados da figurinha (exigência do WhatsApp).
+-   **Validações:** Verifica limites de tamanho (KB) e dimensões (512x512px) automaticamente.
 
-### 1. Editor de Imagem ("Workspace")
-- Substituída a biblioteca de crop simples por um **ambiente de edição manual**.
-- O usuário vê um quadrado guia (512x512) e pode ajustar a imagem livremente dentro dele.
-- **Performance:** Otimizações com `graphicsLayer` e `clipToBounds` para mover textos e imagens gigantes sem lag.
+### 3.5. Configurações e Backup (`SettingsScreen` / `RestorePreviewScreen`)
+-   **Backup:** Exporta todos os pacotes e imagens para um arquivo ZIP.
+-   **Restauração:** Importa backups ZIP, verificando duplicatas antes de restaurar.
+-   **Limpeza:** Ferramenta para remover imagens órfãs (não usadas em nenhum pacote) e liberar espaço.
 
-### 2. Ferramenta de Texto
-- Botão dedicado (ícone 'T') na barra superior.
-- Diálogo de entrada com validação.
-- **Controles:** Slider de tamanho, Paleta de Cores, Seletor de Fontes (Default, Serif, Monospace, Cursive, Bold).
-- Textos são objetos independentes na tela, selecionáveis por toque.
+## 4. Design System
+-   **Tema:** Dark Mode forçado para consistência com ferramentas de edição profissionais.
+-   **Cores:**
+    -   Fundo: `#121212` (Almost Black)
+    -   Superfícies: `#1E1E1E` (Dark Grey)
+    -   Primária: `#BB86FC` (Soft Purple)
+    -   Secundária: `#03DAC6` (Teal)
+-   **Componentes:** Uso extensivo de `Card` com `RoundedCornerShape(16.dp)` e `Elevation`.
 
-### 3. Snap to Grid (Alinhamento Magnético)
-- Funcionalidade que "atrai" a imagem para ângulos retos e alinha as bordas ao quadrado de corte.
-- **Ajustável:** 5 níveis de força selecionáveis na barra inferior.
-- **Lógica Suave:** Implementação que evita que a imagem fique "travada" no imã, permitindo ajuste fino.
+## 5. Pontos de Atenção Recentes
+-   **Correção de Navegação:** Resolvido loop infinito ao voltar da tela de salvamento para edição.
+-   **Correção de Layout:** Removido fundo cinza das miniaturas para suportar transparência corretamente.
+-   **Otimização de Visibilidade:** Ajustada a opacidade dos ícones de ação sobre imagens.
 
-### 4. Fluxo de Salvamento
-- Geração de imagem final 512x512px em WebP.
-- Validação de tamanho (< 100KB) e dimensões estritas exigidas pelo WhatsApp.
-- Compressão inteligente (loop de qualidade) para garantir o tamanho do arquivo.
-- Criação automática de ícone de bandeja (tray icon) 96x96px.
-- Verificação de duplicatas por Hash SHA-256 para evitar figurinhas repetidas no mesmo pacote.
-
-### 5. Interface e UX
-- Padronização dos painéis de controle na parte inferior da tela.
-- Interceptação do botão "Voltar" durante a edição.
-- Ícones intuitivos e feedback visual (toasts, loadings).
-
-## Próximos Passos / Pendências
-- Refinar ainda mais a paridade visual das fontes cursivas entre a tela de edição (Compose) e o Canvas de salvamento (Native Paint), garantindo 100% de igualdade em todos os dispositivos.
-- Implementar sistema de backup/restore completo (estrutura já iniciada).
+## 6. Próximos Passos Sugeridos
+-   Testes finais de fluxo completo (Instalação limpa -> Criar -> Backup -> Restaurar).
+-   Preparação para publicação (Assinatura, Ícone, Screenshots).
+-   Implementação de filtros de imagem ou bordas automáticas.
 
 ---
-*Documentação atualizada em: [Data Atual]*
+*Gerado automaticamente pela IA Assistente em 27/05/2024.*

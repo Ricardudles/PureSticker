@@ -151,6 +151,38 @@ fun PackageScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editEmail,
+                        onValueChange = { editEmail = it },
+                        label = { Text("Email") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editWebsite,
+                        onValueChange = { editWebsite = it },
+                        label = { Text("Website") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editPrivacyPolicy,
+                        onValueChange = { editPrivacyPolicy = it },
+                        label = { Text("Privacy Policy Website") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextField(
+                        value = editLicense,
+                        onValueChange = { editLicense = it },
+                        label = { Text("License Website") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             },
             confirmButton = {
@@ -393,7 +425,7 @@ private fun StickerItem(
                         .padding(4.dp)
                         .size(28.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.4f))
+                        .background(Color.Black.copy(alpha = 0.7f))
                         .clickable { onDelete() },
                     contentAlignment = Alignment.Center
                 ) {
