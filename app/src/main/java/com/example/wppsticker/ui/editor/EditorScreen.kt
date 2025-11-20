@@ -3,31 +3,43 @@ package com.example.wppsticker.ui.editor
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Grid3x3
+import androidx.compose.material.icons.filled.GridOff
+import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
@@ -35,6 +47,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,8 +60,8 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,7 +72,7 @@ import com.example.wppsticker.nav.Screen
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun EditorScreen(
     navController: NavController,
@@ -72,7 +85,11 @@ fun EditorScreen(
     val selectedTextId by viewModel.selectedTextId.collectAsState()
     val showTextDialog by viewModel.showTextDialog.collectAsState()
     val navigateToSave by viewModel.navigateToSave.collectAsState()
+    val isSnapEnabled by viewModel.isSnapEnabled.collectAsState()
+    val snapStrength by viewModel.snapStrength.collectAsState()
     
+    var showSnapMenu by remember { mutableStateOf(false) }
+
     val cropLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
         if (result.isSuccessful) {
             val uriContent = result.uriContent
@@ -104,8 +121,63 @@ fun EditorScreen(
             TopAppBar(
                 title = { Text("Edit Sticker") },
                 actions = {
+                    Box {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .combinedClickable(
+                                    onClick = { viewModel.toggleSnap(!isSnapEnabled) },
+                                    onLongClick = { showSnapMenu = true }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isSnapEnabled) Icons.Default.Grid3x3 else Icons.Default.GridOff,
+                                contentDescription = if (isSnapEnabled) "Snap On" else "Snap Off",
+                                tint = if (isSnapEnabled) MaterialTheme.colorScheme.primary else Color.Gray
+                            )
+                        }
+                        
+                        DropdownMenu(
+                            expanded = showSnapMenu,
+                            onDismissRequest = { showSnapMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Magnet Strength", style = MaterialTheme.typography.titleSmall) },
+                                onClick = {},
+                                enabled = false
+                            )
+                            val strengths = listOf(
+                                1 to "1 - Very Weak",
+                                2 to "2 - Weak",
+                                3 to "3 - Standard",
+                                4 to "4 - Strong",
+                                5 to "5 - Very Strong"
+                            )
+                            strengths.forEach { (level, label) ->
+                                DropdownMenuItem(
+                                    text = { 
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (level == snapStrength) {
+                                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.size(8.dp))
+                                            } else {
+                                                Spacer(modifier = Modifier.size(24.dp))
+                                            }
+                                            Text(label)
+                                        }
+                                    },
+                                    onClick = {
+                                        viewModel.setSnapStrength(level)
+                                        showSnapMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                     IconButton(onClick = { viewModel.showTextDialog(true) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Text")
+                        Icon(Icons.Default.Title, contentDescription = "Add Text")
                     }
                     IconButton(onClick = { viewModel.onSaveAndContinue() }) {
                         Icon(Icons.Default.Check, contentDescription = "Continue")
@@ -118,7 +190,7 @@ fun EditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color.DarkGray) // Dark background for contrast
+                .background(Color.DarkGray)
         ) {
             // Workspace Area
             BoxWithConstraints(
@@ -127,22 +199,22 @@ fun EditorScreen(
                     .padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // We want a square workspace that fits within the available space
                 val workspaceSize = minOf(maxWidth, maxHeight)
                 val density = LocalDensity.current
                 
-                // Mapping factors to convert between screen pixels and canvas (512x512)
                 val canvasSize = 512f
                 val scaleToCanvas = remember(workspaceSize) { canvasSize / with(density) { workspaceSize.toPx() } }
                 val scaleFromCanvas = remember(workspaceSize) { with(density) { workspaceSize.toPx() } / canvasSize }
+                val textFontSize = (workspaceSize.value * 0.0625f).sp
 
                 Box(
                     modifier = Modifier
                         .size(workspaceSize)
                         .aspectRatio(1f)
-                        .background(Color.Transparent) // The sticker background is transparent usually
+                        .background(Color.Transparent)
+                        .clipToBounds() // OPTIMIZATION: Clip everything to the workspace
                 ) {
-                    // 1. Guide/Border for the sticker area
+                    // 1. Guide/Border
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawRect(
                             color = Color.White,
@@ -153,12 +225,11 @@ fun EditorScreen(
                         )
                     }
 
-                    // 2. Image Layer with Transforms
-                    // We clip content to the box so it looks like the final cut
+                    // 2. Image Layer
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .clipToBounds()
+                            // clipToBounds already on parent
                             .pointerInput(Unit) {
                                 detectTapGestures {
                                     viewModel.onTextSelected(null)
@@ -166,10 +237,7 @@ fun EditorScreen(
                             }
                             .pointerInput(Unit) {
                                 detectTransformGestures { _, pan, zoom, rotation ->
-                                    // Check directly from ViewModel to avoid stale capture in closure
                                     if (viewModel.selectedTextId.value == null) {
-                                        // Apply transforms to image if no text is selected
-                                        // Convert pan from screen pixels to canvas units (512x512)
                                         val canvasPan = pan * scaleToCanvas
                                         viewModel.updateImageState(offset = canvasPan, scale = zoom, rotation = rotation)
                                     }
@@ -181,79 +249,100 @@ fun EditorScreen(
                                 model = uri,
                                 contentDescription = "Sticker Image",
                                 modifier = Modifier
-                                    .fillMaxSize() // Coil usually fits/fills. We want it centered initially.
-                                    .graphicsLayer(
-                                        scaleX = imageState.scale,
-                                        scaleY = imageState.scale,
-                                        rotationZ = imageState.rotation,
-                                        translationX = imageState.offset.x * scaleFromCanvas, // Convert back to screen pixels for display
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        // OPTIMIZATION: Use block syntax
+                                        scaleX = imageState.scale
+                                        scaleY = imageState.scale
+                                        rotationZ = imageState.rotation
+                                        translationX = imageState.offset.x * scaleFromCanvas
                                         translationY = imageState.offset.y * scaleFromCanvas
-                                    )
+                                    }
                             )
                         }
                     }
 
                     // 3. Text Layer
                     texts.forEach { textData ->
-                        val isSelected = textData.id == selectedTextId
-                        val borderModifier = if (isSelected) {
-                            Modifier.border(1.dp, Color.Yellow)
-                        } else {
-                            Modifier
-                        }
+                        key(textData.id) { 
+                            val isSelected = textData.id == selectedTextId
+                            val borderModifier = if (isSelected) {
+                                Modifier.border(1.dp, Color.Yellow)
+                            } else {
+                                Modifier
+                            }
 
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.Center) // Start from center
-                                .graphicsLayer(
-                                    scaleX = textData.scale,
-                                    scaleY = textData.scale,
-                                    rotationZ = textData.rotation,
-                                    translationX = textData.offset.x * scaleFromCanvas,
-                                    translationY = textData.offset.y * scaleFromCanvas
-                                )
-                                .then(borderModifier)
-                                .pointerInput(textData.id) {
-                                    detectTapGestures {
-                                        viewModel.onTextSelected(textData.id)
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .graphicsLayer {
+                                        // OPTIMIZATION: Use block syntax for smoother updates
+                                        scaleX = textData.scale
+                                        scaleY = textData.scale
+                                        rotationZ = textData.rotation
+                                        translationX = textData.offset.x * scaleFromCanvas
+                                        translationY = textData.offset.y * scaleFromCanvas
                                     }
-                                }
-                                .pointerInput(textData.id, isSelected) {
-                                    if (isSelected) {
-                                        detectTransformGestures { _, pan, zoom, rotation ->
-                                            val canvasPan = pan * scaleToCanvas
-                                            viewModel.updateSelectedText(
-                                                offset = canvasPan,
-                                                scale = zoom,
-                                                rotation = rotation
-                                            )
+                                    .then(borderModifier)
+                                    .pointerInput(textData.id) {
+                                        detectTapGestures {
+                                            viewModel.onTextSelected(textData.id)
                                         }
                                     }
-                                }
-                        ) {
-                            Text(
-                                text = textData.text,
-                                color = textData.color,
-                                // Font size needs to be relative to the workspace size to match canvas 32f
-                                // 32f is 32/512 = 0.0625 of the canvas size
-                                fontSize = (workspaceSize.value * 0.0625f).sp, // Approximate visual matching
-                                modifier = Modifier.padding(4.dp)
-                            )
+                                    .pointerInput(textData.id, isSelected) {
+                                        if (isSelected) {
+                                            detectTransformGestures { _, pan, zoom, rotation ->
+                                                val canvasPan = pan * scaleToCanvas
+                                                viewModel.updateSelectedText(
+                                                    offset = canvasPan,
+                                                    scale = zoom,
+                                                    rotation = rotation
+                                                )
+                                            }
+                                        }
+                                    }
+                            ) {
+                                StickerTextDisplay(
+                                    text = textData.text,
+                                    color = textData.color,
+                                    fontSize = textFontSize
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Controls (Color Selector)
+            // Bottom Controls
             val selectedText = texts.find { it.id == selectedTextId }
             if (selectedText != null) {
-                ColorSelector(
-                    selectedColor = selectedText.color,
-                    onColorSelected = { color -> viewModel.updateSelectedTextColor(color) },
+                Column(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.5f))
                         .padding(16.dp)
-                )
+                ) {
+                    Text(
+                        text = "Text Size",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Slider(
+                        value = selectedText.scale,
+                        onValueChange = { viewModel.setTextScale(it) },
+                        valueRange = 0.5f..5f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    ColorSelector(
+                        selectedColor = selectedText.color,
+                        onColorSelected = { color -> viewModel.updateSelectedTextColor(color) }
+                    )
+                }
             }
             
             if (isBusy) {
@@ -261,6 +350,16 @@ fun EditorScreen(
             }
         }
     }
+}
+
+@Composable
+fun StickerTextDisplay(text: String, color: Color, fontSize: TextUnit) {
+    Text(
+        text = text,
+        color = color,
+        fontSize = fontSize,
+        modifier = Modifier.padding(4.dp)
+    )
 }
 
 @Composable
