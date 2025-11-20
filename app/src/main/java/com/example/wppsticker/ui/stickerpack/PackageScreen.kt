@@ -1,8 +1,10 @@
 package com.example.wppsticker.ui.stickerpack
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.net.Uri
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,13 +16,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -30,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -42,6 +48,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,6 +60,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +82,7 @@ import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.util.UiState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
+import kotlinx.coroutines.flow.collectLatest
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -85,6 +94,9 @@ fun PackageScreen(
     viewModel: PackageViewModel = hiltViewModel()
 ) {
     val stickerPackageState by viewModel.stickerPackage.collectAsState()
+    val sendIntent by viewModel.sendIntent.collectAsState()
+    val context = LocalContext.current
+    
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteStickerDialog by remember { mutableStateOf<Sticker?>(null) }
     
@@ -118,6 +130,30 @@ fun PackageScreen(
     // Handle Back Press to clear selection
     BackHandler(enabled = isSelectionMode) {
         selectedStickers = emptySet()
+    }
+
+    // Effects for Toast and Intent
+    LaunchedEffect(key1 = true) {
+        viewModel.uiEvents.collect { event ->
+            Toast.makeText(context, event, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val whatsappLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { 
+        viewModel.onSendIntentLaunched()
+    }
+
+    LaunchedEffect(sendIntent) {
+        sendIntent?.let { intent ->
+            try {
+                whatsappLauncher.launch(intent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(context, "WhatsApp not found.", Toast.LENGTH_LONG).show()
+                viewModel.onSendIntentLaunched()
+            }
+        }
     }
 
     // Edit Dialog
@@ -300,12 +336,31 @@ fun PackageScreen(
         },
         floatingActionButton = {
             if (!isSelectionMode) {
-                FloatingActionButton(
-                    onClick = { permissionState.launchPermissionRequest() },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.navigationBarsPadding() // Ensures buttons are above the system gesture bar
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Sticker")
+                    // 2. Add to WhatsApp Button (Green, Extended FAB, Floating Pill)
+                    if (stickerPackageState is UiState.Success) {
+                        ExtendedFloatingActionButton(
+                            onClick = { viewModel.sendStickerPack() },
+                            containerColor = Color(0xFF25D366),
+                            contentColor = Color.White,
+                            expanded = true,
+                            icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
+                            text = { Text("Add to WhatsApp", fontWeight = FontWeight.Bold) }
+                        )
+                    }
+                    
+                    // 1. Add Sticker Button (Purple, Standard FAB)
+                    FloatingActionButton(
+                        onClick = { permissionState.launchPermissionRequest() },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Sticker")
+                    }
                 }
             }
         }
