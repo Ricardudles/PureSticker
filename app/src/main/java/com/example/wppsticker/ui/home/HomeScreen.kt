@@ -25,7 +25,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -200,8 +202,6 @@ private fun StickerPackageItem(
         Column(modifier = Modifier.padding(16.dp)) {
             // --- Header Row ---
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Removed Tray Icon as requested
-                
                 // Info (Name & Author)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -237,37 +237,54 @@ private fun StickerPackageItem(
             Spacer(modifier = Modifier.height(12.dp))
 
             // --- Preview Grid ---
-            // Show a neat row of previews
             if (stickerPackage.stickers.isNotEmpty()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    stickerPackage.stickers.take(6).forEach { sticker ->
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(File(context.filesDir, sticker.imageFile))
-                                .crossfade(true)
-                                .size(256)
-                                .build(),
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
-                    
-                    // "+N" Indicator
-                    if (stickerPackage.stickers.size > 6) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "+${stickerPackage.stickers.size - 6}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                    val maxPreview = 6
+                    val stickersToShow = stickerPackage.stickers.take(maxPreview)
+                    val remainingCount = stickerPackage.stickers.size - maxPreview
+
+                    stickersToShow.forEachIndexed { index, sticker ->
+                        val isLastInPreview = index == stickersToShow.lastIndex
+                        val hasMore = remainingCount > 0
+
+                        if (isLastInPreview && hasMore) {
+                            // Last item with overlay
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(File(context.filesDir, sticker.imageFile))
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = "More stickers",
+                                    modifier = Modifier.fillMaxSize(),
+                                    colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.6f), blendMode = BlendMode.SrcOver)
+                                )
+                                Text(
+                                    text = "+${remainingCount + 1}",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            // Regular sticker image
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(File(context.filesDir, sticker.imageFile))
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(8.dp))
                             )
                         }
                     }
