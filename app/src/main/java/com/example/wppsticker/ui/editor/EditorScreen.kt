@@ -3,12 +3,20 @@ package com.example.wppsticker.ui.editor
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -23,32 +31,36 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Grid3x3
 import androidx.compose.material.icons.filled.GridOff
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -65,6 +77,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
@@ -97,7 +110,6 @@ fun EditorScreen(
     val isSnapEnabled by viewModel.isSnapEnabled.collectAsState()
     val snapStrength by viewModel.snapStrength.collectAsState()
     
-    var showSnapMenu by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
 
     // Intercept Back Button
@@ -105,43 +117,27 @@ fun EditorScreen(
         showExitDialog = true
     }
 
-    val cropLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
-        if (result.isSuccessful) {
-            val uriContent = result.uriContent
-            if (uriContent != null) {
-                viewModel.onImageCropped(uriContent)
-            }
-        }
-    }
-
     LaunchedEffect(navigateToSave) {
         navigateToSave?.let {
             val encodedUri = URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
             navController.navigate("${Screen.SaveSticker.name}/$encodedUri")
-            viewModel.onNavigatedToSave() // Reset navigation event
+            viewModel.onNavigatedToSave()
         }
     }
 
-    // Exit Confirmation Dialog
+    // --- Dialogs ---
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text("Sair da edição?") },
-            text = { Text("Você perderá todas as alterações não salvas. Tem certeza?") },
+            title = { Text("Exit Editor?") },
+            text = { Text("You will lose unsaved changes.") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        showExitDialog = false
-                        navController.popBackStack()
-                    }
-                ) {
-                    Text("Sair", color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { showExitDialog = false; navController.popBackStack() }) {
+                    Text("Exit", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("Cancelar")
-                }
+                TextButton(onClick = { showExitDialog = false }) { Text("Cancel") }
             }
         )
     }
@@ -150,27 +146,24 @@ fun EditorScreen(
         var textInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { viewModel.showTextDialog(false) },
-            title = { Text("Add Text") },
+            title = { Text("New Text") },
             text = { 
                 TextField(
                     value = textInput, 
                     onValueChange = { textInput = it },
-                    placeholder = { Text("Type something...") },
-                    singleLine = true
+                    placeholder = { Text("Type here...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 ) 
             },
             confirmButton = { 
                 Button(
                     onClick = { viewModel.addText(textInput) },
-                    enabled = textInput.isNotBlank() // Disable if empty
-                ) { 
-                    Text("Add") 
-                } 
+                    enabled = textInput.isNotBlank()
+                ) { Text("Add") } 
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.showTextDialog(false) }) {
-                    Text("Cancel")
-                }
+                TextButton(onClick = { viewModel.showTextDialog(false) }) { Text("Cancel") }
             }
         )
     }
@@ -179,82 +172,17 @@ fun EditorScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Edit Sticker") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Black,
+                    titleContentColor = Color.White,
+                    actionIconContentColor = MaterialTheme.colorScheme.primary
+                ),
                 actions = {
-                    // Only show top actions if NO text is selected (to avoid clutter)
-                    if (selectedTextId == null) {
-                        // Snap Toggle
-                        Box {
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .combinedClickable(
-                                        onClick = { viewModel.toggleSnap(!isSnapEnabled) },
-                                        onLongClick = { showSnapMenu = true }
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isSnapEnabled) Icons.Default.Grid3x3 else Icons.Default.GridOff,
-                                    contentDescription = if (isSnapEnabled) "Snap On" else "Snap Off",
-                                    tint = if (isSnapEnabled) MaterialTheme.colorScheme.primary else Color.Gray
-                                )
-                            }
-                            
-                            DropdownMenu(
-                                expanded = showSnapMenu,
-                                onDismissRequest = { showSnapMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Magnet Strength", style = MaterialTheme.typography.titleSmall) },
-                                    onClick = {},
-                                    enabled = false
-                                )
-                                val strengths = listOf(
-                                    1 to "1 - Very Weak",
-                                    2 to "2 - Weak",
-                                    3 to "3 - Standard",
-                                    4 to "4 - Strong",
-                                    5 to "5 - Very Strong"
-                                )
-                                strengths.forEach { (level, label) ->
-                                    DropdownMenuItem(
-                                        text = { 
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                if (level == snapStrength) {
-                                                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                    Spacer(modifier = Modifier.size(8.dp))
-                                                } else {
-                                                    Spacer(modifier = Modifier.size(24.dp))
-                                                }
-                                                Text(label)
-                                            }
-                                        },
-                                        onClick = {
-                                            viewModel.setSnapStrength(level)
-                                            showSnapMenu = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        // Add Text
-                        IconButton(onClick = { viewModel.showTextDialog(true) }) {
-                            Icon(Icons.Default.Title, contentDescription = "Add Text")
-                        }
-                        // Save
-                        IconButton(onClick = { viewModel.onSaveAndContinue() }) {
-                            Icon(Icons.Default.Check, contentDescription = "Continue")
-                        }
-                    } else {
-                        // When text is selected, show a "Done" button in top bar (optional, mainly bottom bar handles it)
-                        // Or keep it clean. Let's keep top bar clean or show "Done" to exit text mode
-                        Button(
-                            onClick = { viewModel.onTextSelected(null) },
-                            modifier = Modifier.padding(end = 8.dp)
-                        ) {
-                            Text("Done")
-                        }
+                    // "Next" Button
+                    TextButton(onClick = { viewModel.onSaveAndContinue() }) {
+                        Text("Next", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = "Next")
                     }
                 }
             )
@@ -264,32 +192,26 @@ fun EditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color.DarkGray)
+                .background(Color(0xFF121212)) // Dark background
         ) {
-            // Workspace Area
+            // --- WORKSPACE (CENTER) ---
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
-                    .padding(bottom = 160.dp), // Reserve space for bottom panel
+                    .padding(bottom = 180.dp), // Reserve space for the Bottom Dock
                 contentAlignment = Alignment.Center
             ) {
-                val workspaceSize = minOf(maxWidth, maxHeight)
+                val workspaceSize = minOf(maxWidth, maxHeight) * 0.9f // Add some breathing room
                 val density = LocalDensity.current
                 
                 val canvasSize = 512f
                 val scaleToCanvas = remember(workspaceSize) { canvasSize / with(density) { workspaceSize.toPx() } }
                 val scaleFromCanvas = remember(workspaceSize) { with(density) { workspaceSize.toPx() } / canvasSize }
-                
-                // Calculate font size in SP so it visually matches the 32px base size on the 512px canvas
-                // ignoring the user's font scaling preference to ensure WYSIWYG.
                 val textFontSize = remember(workspaceSize) {
-                    with(density) {
-                        val targetHeightPx = 32f * scaleFromCanvas
-                        targetHeightPx.toSp()
-                    }
+                    with(density) { (32f * scaleFromCanvas).toSp() }
                 }
 
+                // The 512x512 Representation
                 Box(
                     modifier = Modifier
                         .size(workspaceSize)
@@ -297,25 +219,23 @@ fun EditorScreen(
                         .background(Color.Transparent)
                         .clipToBounds() 
                 ) {
-                    // 1. Guide/Border
+                    // Guide Border
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawRect(
-                            color = Color.White,
+                            color = Color.White.copy(alpha = 0.3f),
                             style = Stroke(
                                 width = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 20f), 0f)
                             )
                         )
                     }
 
-                    // 2. Image Layer
+                    // Image Layer
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .pointerInput(Unit) {
-                                detectTapGestures {
-                                    viewModel.onTextSelected(null)
-                                }
+                                detectTapGestures { viewModel.onTextSelected(null) }
                             }
                             .pointerInput(Unit) {
                                 detectTransformGestures { _, pan, zoom, rotation ->
@@ -329,7 +249,7 @@ fun EditorScreen(
                         imageUri?.let { uri ->
                             AsyncImage(
                                 model = uri,
-                                contentDescription = "Sticker Image",
+                                contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .graphicsLayer {
@@ -343,12 +263,12 @@ fun EditorScreen(
                         }
                     }
 
-                    // 3. Text Layer
+                    // Text Layer
                     texts.forEach { textData ->
                         key(textData.id) {
                             val isSelected = textData.id == selectedTextId
                             val borderModifier = if (isSelected) {
-                                Modifier.border(1.dp, Color.Yellow)
+                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
                             } else {
                                 Modifier
                             }
@@ -365,19 +285,13 @@ fun EditorScreen(
                                     }
                                     .then(borderModifier)
                                     .pointerInput(textData.id) {
-                                        detectTapGestures {
-                                            viewModel.onTextSelected(textData.id)
-                                        }
+                                        detectTapGestures { viewModel.onTextSelected(textData.id) }
                                     }
                                     .pointerInput(textData.id, isSelected) {
                                         if (isSelected) {
                                             detectTransformGestures { _, pan, zoom, rotation ->
                                                 val canvasPan = pan * scaleToCanvas
-                                                viewModel.updateSelectedText(
-                                                    offset = canvasPan,
-                                                    scale = zoom,
-                                                    rotation = rotation
-                                                )
+                                                viewModel.updateSelectedText(offset = canvasPan, scale = zoom, rotation = rotation)
                                             }
                                         }
                                     }
@@ -394,85 +308,234 @@ fun EditorScreen(
                 }
             }
 
-            // --- Unified Bottom Control Panel ---
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.8f))
-                    .padding(16.dp)
+            // --- BOTTOM DOCK ---
+            Surface(
+                modifier = Modifier.align(Alignment.BottomCenter),
+                color = Color(0xFF1E1E1E),
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                shadowElevation = 16.dp
             ) {
-                val selectedText = texts.find { it.id == selectedTextId }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .padding(bottom = 8.dp) // Extra bottom padding
+                ) {
+                    val selectedText = texts.find { it.id == selectedTextId }
 
-                if (selectedText != null) {
-                    // === TEXT EDITING MODE ===
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    AnimatedVisibility(
+                        visible = selectedText != null,
+                        enter = slideInVertically { it } + fadeIn(),
+                        exit = slideOutVertically { it } + fadeOut()
                     ) {
-                        Text("Edit Text", color = Color.White, style = MaterialTheme.typography.titleSmall)
-                        IconButton(onClick = { viewModel.onTextSelected(null) }) { // OK Button
-                            Icon(Icons.Default.CheckCircle, contentDescription = "Done", tint = Color.Green)
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Font Selector
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(listOf(0, 1, 2, 3, 4)) { index ->
-                            FontSelectorItem(
-                                index = index, 
-                                isSelected = selectedText.fontIndex == index,
-                                onClick = { viewModel.updateSelectedTextFont(index) }
+                        if (selectedText != null) {
+                            TextEditorPanel(
+                                textData = selectedText,
+                                onFontChange = { viewModel.updateSelectedTextFont(it) },
+                                onColorChange = { viewModel.updateSelectedTextColor(it) },
+                                onScaleChange = { viewModel.setTextScale(it) },
+                                onDone = { viewModel.onTextSelected(null) }
                             )
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // Size Slider
-                    Text("Size", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
-                    Slider(
-                        value = selectedText.scale,
-                        onValueChange = { viewModel.setTextScale(it) },
-                        valueRange = 0.5f..5f,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Color Selector
-                    ColorSelector(
-                        selectedColor = selectedText.color,
-                        onColorSelected = { color -> viewModel.updateSelectedTextColor(color) }
-                    )
-                } else if (isSnapEnabled) {
-                    // === IMAGE EDITING MODE (SNAP ON) ===
-                    Text(
-                        text = "Magnet Strength",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    
-                    StrengthSelector(
-                        currentStrength = snapStrength,
-                        onStrengthSelected = { viewModel.setSnapStrength(it) }
-                    )
-                } else {
-                    // === IDLE MODE ===
-                    Box(modifier = Modifier.height(50.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                         Text("Tap an item to edit", color = Color.Gray)
+                    AnimatedVisibility(
+                        visible = selectedText == null,
+                        enter = slideInVertically { it } + fadeIn(),
+                        exit = slideOutVertically { it } + fadeOut()
+                    ) {
+                        MainToolsPanel(
+                            isSnapEnabled = isSnapEnabled,
+                            snapStrength = snapStrength,
+                            onAddText = { viewModel.showTextDialog(true) },
+                            onToggleSnap = { viewModel.toggleSnap(it) },
+                            onChangeSnapStrength = { viewModel.setSnapStrength(it) }
+                        )
                     }
                 }
             }
             
             if (isBusy) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
         }
+    }
+}
+
+@Composable
+fun MainToolsPanel(
+    isSnapEnabled: Boolean,
+    snapStrength: Int,
+    onAddText: () -> Unit,
+    onToggleSnap: (Boolean) -> Unit,
+    onChangeSnapStrength: (Int) -> Unit
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        
+        // Magnet Strength Indicator (Only if enabled)
+        AnimatedVisibility(
+            visible = isSnapEnabled,
+            enter = expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
+            exit = shrinkVertically()
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Magnet Strength: $snapStrength",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    (1..5).forEach { level ->
+                        val isSelected = level <= snapStrength
+                        val isCurrent = level == snapStrength
+                        Box(
+                            modifier = Modifier
+                                .size(if (isCurrent) 16.dp else 12.dp) // Highlight current
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary 
+                                    else Color.DarkGray
+                                )
+                                .clickable { onChangeSnapStrength(level) }
+                        )
+                    }
+                }
+            }
+        }
+
+        // Main Buttons Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ToolButton(
+                icon = Icons.Default.TextFields,
+                label = "Add Text",
+                onClick = onAddText
+            )
+            
+            ToolButton(
+                icon = if (isSnapEnabled) Icons.Default.Grid3x3 else Icons.Default.GridOff,
+                label = "Magnet",
+                isActive = isSnapEnabled,
+                onClick = { onToggleSnap(!isSnapEnabled) }
+            )
+        }
+    }
+}
+
+@Composable
+fun TextEditorPanel(
+    textData: TextData,
+    onFontChange: (Int) -> Unit,
+    onColorChange: (Color) -> Unit,
+    onScaleChange: (Float) -> Unit,
+    onDone: () -> Unit
+) {
+    Column {
+        // Header with Done Button
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Customize Text", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            Button(
+                onClick = onDone,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Done")
+            }
+        }
+
+        // Font Selector
+        Text("Font Style", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(listOf(0, 1, 2, 3, 4)) { index ->
+                FontSelectorItem(
+                    index = index, 
+                    isSelected = textData.fontIndex == index,
+                    onClick = { onFontChange(index) }
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Size Slider
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.FormatSize, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Slider(
+                value = textData.scale,
+                onValueChange = onScaleChange,
+                valueRange = 0.5f..5f,
+                colors = SliderDefaults.colors(
+                    thumbColor = Color.White,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Color Selector
+        ColorSelector(
+            selectedColor = textData.color,
+            onColorSelected = onColorChange
+        )
+    }
+}
+
+@Composable
+fun ToolButton(
+    icon: ImageVector,
+    label: String,
+    isActive: Boolean = false,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(if (isActive) MaterialTheme.colorScheme.primary else Color(0xFF333333)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isActive) MaterialTheme.colorScheme.onPrimary else Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (isActive) MaterialTheme.colorScheme.primary else Color.Gray
+        )
     }
 }
 
@@ -495,7 +558,7 @@ fun StickerTextDisplay(text: String, color: Color, fontSize: TextUnit, fontIndex
         fontWeight = fontWeight,
         fontStyle = fontStyle,
         modifier = Modifier.padding(4.dp),
-        lineHeight = fontSize // Ensure line height matches font size for compact rendering
+        lineHeight = fontSize
     )
 }
 
@@ -509,17 +572,17 @@ fun FontSelectorItem(index: Int, isSelected: Boolean, onClick: () -> Unit) {
         4 -> "Bold"
         else -> "?"
     }
-    val border = if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)) else Modifier
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF333333)
+    val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White
     
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.DarkGray)
-            .then(border)
+            .clip(RoundedCornerShape(12.dp)) // Softer corners
+            .background(backgroundColor)
             .clickable { onClick() }
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        Text(label, color = Color.White)
+        Text(label, color = textColor, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -529,55 +592,23 @@ fun ColorSelector(selectedColor: Color, onColorSelected: (Color) -> Unit, modifi
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         colors.forEach { color ->
-            val border = if (color == selectedColor) {
-                Modifier.border(3.dp, Color.White, CircleShape)
-            } else {
-                Modifier.border(1.dp, Color.Gray, CircleShape)
-            }
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(color)
-                    .then(border)
-                    .clickable { onColorSelected(color) }
-            )
-        }
-    }
-}
-
-@Composable
-fun StrengthSelector(currentStrength: Int, onStrengthSelected: (Int) -> Unit, modifier: Modifier = Modifier) {
-    val levels = (1..5).toList()
-
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        levels.forEach { level ->
-            val isSelected = level == currentStrength
-            val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.DarkGray
-            val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White
-            val border = if (isSelected) {
+            val isSelected = color == selectedColor
+            val borderModifier = if (isSelected) {
                 Modifier.border(2.dp, Color.White, CircleShape)
             } else {
-                Modifier.border(1.dp, Color.Gray, CircleShape)
+                Modifier.border(1.dp, Color(0xFF444444), CircleShape)
             }
-            
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(backgroundColor)
-                    .then(border)
-                    .clickable { onStrengthSelected(level) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = level.toString(), color = textColor, fontWeight = FontWeight.Bold)
-            }
+                    .background(color)
+                    .then(borderModifier)
+                    .clickable { onColorSelected(color) }
+            )
         }
     }
 }
