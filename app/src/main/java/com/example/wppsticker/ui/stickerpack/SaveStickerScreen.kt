@@ -1,10 +1,12 @@
 package com.example.wppsticker.ui.stickerpack
 
 import android.widget.Toast
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,12 +16,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import coil.compose.rememberAsyncImagePainter
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.wppsticker.data.local.StickerPackage
 import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.ui.util.LoadingDialog
@@ -35,17 +42,12 @@ fun SaveStickerScreen(
     val saveFinished by viewModel.saveFinished.collectAsState()
     val loadingMessage by viewModel.loadingMessage.collectAsState()
     
-    // Derive isBusy from loadingMessage since we removed isBusy from ViewModel
     val isBusy = loadingMessage != null
-    
     val context = LocalContext.current
 
     var selectedPackage by remember { mutableStateOf<StickerPackage?>(null) }
-    
-    // Changed: Manage emojis as a list
     var selectedEmojis by remember { mutableStateOf<List<String>>(emptyList()) }
     var showEmojiPicker by remember { mutableStateOf(false) }
-    
     var showNewPackageDialog by remember { mutableStateOf(false) }
     var showDuplicateDialog by remember { mutableStateOf<(() -> Unit)?>(null) }
     var expanded by remember { mutableStateOf(false) }
@@ -53,12 +55,8 @@ fun SaveStickerScreen(
     LaunchedEffect(key1 = true) {
         viewModel.events.collectLatest { event ->
             when(event) {
-                is SaveStickerEvent.ShowDuplicateDialog -> {
-                    showDuplicateDialog = event.onConfirm
-                }
-                is SaveStickerEvent.ShowToast -> {
-                    Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
-                }
+                is SaveStickerEvent.ShowDuplicateDialog -> showDuplicateDialog = event.onConfirm
+                is SaveStickerEvent.ShowToast -> Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -70,9 +68,7 @@ fun SaveStickerScreen(
     }
 
     // --- Dialogs ---
-    if (loadingMessage != null) {
-        LoadingDialog(message = loadingMessage!!)
-    }
+    if (loadingMessage != null) LoadingDialog(message = loadingMessage!!)
 
     if (showDuplicateDialog != null) {
         AlertDialog(
@@ -80,10 +76,7 @@ fun SaveStickerScreen(
             title = { Text("Duplicate Sticker") },
             text = { Text("This image already exists in this package. Do you want to add it anyway?") },
             confirmButton = {
-                Button(onClick = {
-                    showDuplicateDialog?.invoke()
-                    showDuplicateDialog = null
-                }) { Text("Add Anyway") }
+                Button(onClick = { showDuplicateDialog?.invoke(); showDuplicateDialog = null }) { Text("Add Anyway") }
             },
             dismissButton = {
                 TextButton(onClick = { showDuplicateDialog = null }) { Text("Cancel") }
@@ -104,82 +97,42 @@ fun SaveStickerScreen(
             title = { Text("Create New Package") },
             text = { 
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    TextField(
-                        value = newPackageName, 
-                        onValueChange = { newPackageName = it }, 
-                        label = { Text("Package Name *") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = newPackageName, onValueChange = { newPackageName = it }, label = { Text("Package Name *") }, modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = newPackageAuthor, 
-                        onValueChange = { newPackageAuthor = it }, 
-                        label = { Text("Author *") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = newPackageAuthor, onValueChange = { newPackageAuthor = it }, label = { Text("Author *") }, modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = newPackageEmail, 
-                        onValueChange = { newPackageEmail = it }, 
-                        label = { Text("Email (Optional)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = newPackageEmail, onValueChange = { newPackageEmail = it }, label = { Text("Email (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = newPackageWebsite, 
-                        onValueChange = { newPackageWebsite = it }, 
-                        label = { Text("Website (Optional)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        placeholder = { Text("https://...") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = newPackageWebsite, onValueChange = { newPackageWebsite = it }, label = { Text("Website (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = newPackagePrivacyPolicy, 
-                        onValueChange = { newPackagePrivacyPolicy = it }, 
-                        label = { Text("Privacy Policy URL (Optional)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = newPackagePrivacyPolicy, onValueChange = { newPackagePrivacyPolicy = it }, label = { Text("Privacy Policy (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = newPackageLicense, 
-                        onValueChange = { newPackageLicense = it }, 
-                        label = { Text("License URL (Optional)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    OutlinedTextField(value = newPackageLicense, onValueChange = { newPackageLicense = it }, label = { Text("License (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
                 Button(onClick = { 
-                    viewModel.createNewPackage(
-                        name = newPackageName,
-                        author = newPackageAuthor,
-                        email = newPackageEmail,
-                        website = newPackageWebsite,
-                        privacyPolicy = newPackagePrivacyPolicy,
-                        licenseAgreement = newPackageLicense
-                    ) { createdPackage ->
+                    viewModel.createNewPackage(newPackageName, newPackageAuthor, newPackageEmail, newPackageWebsite, newPackagePrivacyPolicy, newPackageLicense) { createdPackage ->
                         selectedPackage = createdPackage
                         showNewPackageDialog = false
                     }
                 }) { Text("Create") }
             },
-            dismissButton = {
-                TextButton(onClick = { showNewPackageDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            dismissButton = { TextButton(onClick = { showNewPackageDialog = false }) { Text("Cancel") } }
         )
     }
 
     // --- Main UI ---
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = { 
             TopAppBar(
-                title = { Text("Save Sticker") },
+                title = { Text("Save Sticker", fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onBackground
+                ),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -196,76 +149,99 @@ fun SaveStickerScreen(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Image(painter = rememberAsyncImagePainter(viewModel.stickerUri), contentDescription = "Final Sticker", modifier = Modifier.size(150.dp))
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // --- Emoji Selector UI ---
-                Text("Select Emojis (Max 3)", style = MaterialTheme.typography.labelLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                OutlinedTextField(
-                    value = selectedEmojis.joinToString(" "),
-                    onValueChange = { }, // Read-only
-                    readOnly = true,
-                    label = { Text("Emojis") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showEmojiPicker = true }, // Open picker on click
-                    trailingIcon = {
-                        IconButton(onClick = { showEmojiPicker = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Select Emojis")
-                        }
-                    },
-                    enabled = false, // Disable typing, but click works on Box above or Icon
-                    colors = OutlinedTextFieldDefaults.colors(
-                        disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                        disabledBorderColor = MaterialTheme.colorScheme.outline,
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                // Preview Card
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(8.dp),
+                    modifier = Modifier.padding(bottom = 24.dp)
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(viewModel.stickerUri).crossfade(true).build(),
+                        contentDescription = "Final Sticker",
+                        modifier = Modifier.size(200.dp).padding(16.dp),
+                        contentScale = ContentScale.Fit
                     )
-                )
-                Spacer(modifier = Modifier.height(16.dp))
+                }
 
-                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-                    TextField(
-                        value = selectedPackage?.name ?: "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Select a Package") },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
-                    )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        packages.forEach { pack ->
-                            DropdownMenuItem(
-                                text = { Text(pack.name) }, 
-                                onClick = { 
-                                    selectedPackage = pack
-                                    expanded = false 
+                // --- Form Area ---
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Select Emojis (Max 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        OutlinedTextField(
+                            value = selectedEmojis.joinToString(" "),
+                            onValueChange = { }, 
+                            readOnly = true,
+                            placeholder = { Text("Tap to select...") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showEmojiPicker = true }, 
+                            trailingIcon = {
+                                IconButton(onClick = { showEmojiPicker = true }) {
+                                    Icon(Icons.Default.Add, contentDescription = "Select")
                                 }
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text("+ Create New Package") }, 
-                            onClick = { 
-                                showNewPackageDialog = true 
-                                expanded = false
-                            }
+                            },
+                            enabled = false, 
+                            colors = OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                                disabledPlaceholderColor = Color.Gray,
+                                disabledTrailingIconColor = MaterialTheme.colorScheme.primary
+                            ),
+                            shape = RoundedCornerShape(12.dp)
                         )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text("Add to Package", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                            OutlinedTextField(
+                                value = selectedPackage?.name ?: "",
+                                onValueChange = {},
+                                readOnly = true,
+                                placeholder = { Text("Select a package...") },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                                )
+                            )
+                            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                                packages.forEach { pack ->
+                                    DropdownMenuItem(
+                                        text = { Text(pack.name) }, 
+                                        onClick = { selectedPackage = pack; expanded = false }
+                                    )
+                                }
+                                Divider()
+                                DropdownMenuItem(
+                                    text = { Text("+ Create New Package", color = MaterialTheme.colorScheme.primary) }, 
+                                    onClick = { showNewPackageDialog = true; expanded = false }
+                                )
+                            }
+                        }
                     }
                 }
+                
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
-                    onClick = { 
-                        selectedPackage?.let { 
-                            viewModel.saveSticker(it, selectedEmojis.joinToString(",")) 
-                        } 
-                    },
+                    onClick = { selectedPackage?.let { viewModel.saveSticker(it, selectedEmojis.joinToString(",")) } },
                     enabled = selectedPackage != null && selectedEmojis.isNotEmpty() && !isBusy,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Save Sticker to Package")
+                    Text("Save Sticker", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -273,14 +249,9 @@ fun SaveStickerScreen(
                 EmojiPickerSheet(
                     selectedEmojis = selectedEmojis,
                     onEmojiToggle = { emoji ->
-                        if (selectedEmojis.contains(emoji)) {
-                            selectedEmojis = selectedEmojis - emoji
-                        } else if (selectedEmojis.size < 3) {
-                            selectedEmojis = selectedEmojis + emoji
-                        } else {
-                            // Already 3 selected, maybe show toast
-                            Toast.makeText(context, "Max 3 emojis allowed", Toast.LENGTH_SHORT).show()
-                        }
+                        if (selectedEmojis.contains(emoji)) selectedEmojis = selectedEmojis - emoji
+                        else if (selectedEmojis.size < 3) selectedEmojis = selectedEmojis + emoji
+                        else Toast.makeText(context, "Max 3 emojis allowed", Toast.LENGTH_SHORT).show()
                     },
                     onDismissRequest = { showEmojiPicker = false }
                 )

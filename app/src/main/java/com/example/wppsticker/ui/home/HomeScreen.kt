@@ -1,16 +1,13 @@
 package com.example.wppsticker.ui.home
 
 import android.Manifest
-import android.app.Activity
 import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,12 +21,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -37,7 +34,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -115,20 +111,28 @@ fun HomeScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background, // Use Dark Background
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(id = R.string.app_name)) },
+                title = { Text(stringResource(id = R.string.app_name), fontWeight = FontWeight.Bold) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                ),
                 actions = {
                     IconButton(onClick = { navController.navigate(Screen.Settings.name) }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings & Backup")
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { 
-                permissionState.launchPermissionRequest()
-             }) {
+            FloatingActionButton(
+                onClick = { permissionState.launchPermissionRequest() },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Create Sticker")
             }
         }
@@ -137,34 +141,49 @@ fun HomeScreen(
             when (val state = stickerPackagesState) {
                 is UiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 is UiState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(state.data) { stickerPackage ->
-                            StickerPackageItem(
-                                stickerPackage = stickerPackage,
-                                onDelete = { viewModel.deleteStickerPackage(stickerPackage.stickerPackage.id) },
-                                onSend = { viewModel.sendStickerPack(stickerPackage.stickerPackage.id) },
-                                onClick = {
-                                    navController.navigate("${Screen.StickerPack.name}/${stickerPackage.stickerPackage.id}")
-                                }
-                            )
+                    if (state.data.isEmpty()) {
+                         EmptyState()
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(state.data) { stickerPackage ->
+                                StickerPackageItem(
+                                    stickerPackage = stickerPackage,
+                                    onDelete = { viewModel.deleteStickerPackage(stickerPackage.stickerPackage.id) },
+                                    onSend = { viewModel.sendStickerPack(stickerPackage.stickerPackage.id) },
+                                    onClick = {
+                                        navController.navigate("${Screen.StickerPack.name}/${stickerPackage.stickerPackage.id}")
+                                    }
+                                )
+                            }
                         }
                     }
                 }
-                is UiState.Empty -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No sticker packs yet. Tap '+' to create one!")
-                    }
-                }
+                is UiState.Empty -> EmptyState()
             }
         }
     }
 }
 
+@Composable
+fun EmptyState() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                painter = painterResource(R.drawable.ic_launcher_foreground), // Fallback icon
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(100.dp).alpha(0.5f)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("No sticker packs found", color = Color.Gray, style = MaterialTheme.typography.titleMedium)
+            Text("Tap + to create your first sticker!", color = Color.DarkGray)
+        }
+    }
+}
 
 @Composable
 private fun StickerPackageItem(
@@ -176,15 +195,18 @@ private fun StickerPackageItem(
     val context = LocalContext.current
     val trayIconFile = File(context.filesDir, stickerPackage.stickerPackage.trayImageFile)
 
-    ElevatedCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // --- Header --- 
+        Column(modifier = Modifier.padding(16.dp)) {
+            // --- Header Row ---
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Tray Icon
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(trayIconFile)
@@ -194,65 +216,90 @@ private fun StickerPackageItem(
                     error = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = "Tray Icon",
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), CircleShape),
                     contentScale = ContentScale.Crop
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                
+                Spacer(modifier = Modifier.width(16.dp))
+                
+                // Info
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stickerPackage.stickerPackage.name, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    Text(stickerPackage.stickerPackage.author, fontSize = 14.sp, color = Color.Gray)
+                    Text(
+                        stickerPackage.stickerPackage.name, 
+                        style = MaterialTheme.typography.titleMedium, 
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        "${stickerPackage.stickers.size} stickers • ${stickerPackage.stickerPackage.author}", 
+                        style = MaterialTheme.typography.bodySmall, 
+                        color = Color.Gray
+                    )
                 }
+
                 // Actions
                 IconButton(onClick = onSend) {
-                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send to WhatsApp")
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send, 
+                        contentDescription = "Send to WhatsApp",
+                        tint = MaterialTheme.colorScheme.secondary // Green-ish accent
+                    )
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete Package")
+                    Icon(
+                        Icons.Default.Delete, 
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // --- Sticker Preview Row ---
+            // --- Preview Grid ---
+            // Show a neat row of previews
             if (stickerPackage.stickers.isNotEmpty()) {
-                LazyRow(
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(stickerPackage.stickers.take(5)) { sticker ->
+                    stickerPackage.stickers.take(5).forEach { sticker ->
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(File(context.filesDir, sticker.imageFile))
                                 .crossfade(true)
-                                .size(256) // Load a smaller version
+                                .size(256)
                                 .build(),
                             contentDescription = null,
                             modifier = Modifier
-                                .size(56.dp)
+                                .size(48.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .background(MaterialTheme.colorScheme.background) // Darker background for contrast
                         )
                     }
+                    
+                    // "+N" Indicator
                     if (stickerPackage.stickers.size > 5) {
-                        item { // Wrapped in item scope
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "+${stickerPackage.stickers.size - 5}",
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "+${stickerPackage.stickers.size - 5}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         }
                     }
                 }
+            } else {
+                Text("Empty pack", style = MaterialTheme.typography.bodySmall, color = Color.Gray, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }

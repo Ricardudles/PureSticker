@@ -9,12 +9,26 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
+// Force a Dark Theme look for the "Pro Editor" vibe
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = PrimaryColor,
+    secondary = SecondaryColor,
+    tertiary = Pink80,
+    background = BackgroundDark,
+    surface = SurfaceDark,
+    onPrimary = Color.Black,
+    onSecondary = Color.Black,
+    onTertiary = Color.Black,
+    onBackground = OnBackground,
+    onSurface = OnSurface,
+    error = ErrorColor
 )
 
 private val LightColorScheme = lightColorScheme(
@@ -35,19 +49,22 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun WppStickerTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    darkTheme: Boolean = isSystemInDarkTheme(), // We will bias towards dark in UI components
+    dynamicColor: Boolean = false, // Disable dynamic color to maintain brand identity
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    // We prioritize the Dark Scheme for consistency with the editor
+    // But if user really wants light theme (system setting), we could support it.
+    // For now, let's force Dark Scheme or use Dark as default for a consistent look.
+    val colorScheme = DarkColorScheme 
 
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.background.toArgb() // Match background
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false // White icons
+        }
     }
 
     MaterialTheme(
