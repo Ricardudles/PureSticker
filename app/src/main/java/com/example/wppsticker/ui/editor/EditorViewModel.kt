@@ -3,6 +3,7 @@ package com.example.wppsticker.ui.editor
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
@@ -128,6 +129,16 @@ class EditorViewModel @Inject constructor(
             }
         }
     }
+    
+    fun updateSelectedTextFont(fontIndex: Int) {
+        _texts.update { texts ->
+            texts.map {
+                if (it.id == _selectedTextId.value) {
+                    it.copy(fontIndex = fontIndex)
+                } else { it }
+            }
+        }
+    }
 
     fun updateSelectedText(offset: Offset? = null, scale: Float? = null, rotation: Float? = null) {
         _texts.update { texts ->
@@ -187,7 +198,6 @@ class EditorViewModel @Inject constructor(
              }
              
              // --- Edge Snap ---
-             // Only apply edge snap if rotation is cleanly snapped (0, 90, 180...)
              if (finalRotation % 90f == 0f && imageWidth > 0 && imageHeight > 0) {
                   val canvasSize = 512f
                   val baseScale = min(canvasSize / imageWidth, canvasSize / imageHeight)
@@ -283,6 +293,16 @@ class EditorViewModel @Inject constructor(
             texts.value.forEach { textData ->
                 save()
                 textPaint.color = textData.color.toArgb()
+                
+                // Apply correct font mapping
+                textPaint.typeface = when(textData.fontIndex) {
+                    1 -> Typeface.SERIF
+                    2 -> Typeface.MONOSPACE
+                    3 -> Typeface.create("cursive", Typeface.ITALIC) // Correctly request "cursive" family
+                    4 -> Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                    else -> Typeface.SANS_SERIF 
+                }
+
                 translate(canvasWidth / 2f, canvasHeight / 2f)
                 translate(textData.offset.x, textData.offset.y)
                 rotate(textData.rotation)

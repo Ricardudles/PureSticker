@@ -11,14 +11,12 @@ data class TextData(
     var offset: Offset = Offset.Zero,
     var scale: Float = 1f,
     var rotation: Float = 0f,
-    var color: Color = Color.White
+    var color: Color = Color.White,
+    var fontIndex: Int = 0 // 0: Default, 1: Serif, 2: Mono, 3: Cursive, etc.
 ) {
     fun getBoundingBox(fontSize: Float): Rect {
-        // Simplified calculation: approximate width based on length
-        // Adjust 0.6f factor as needed for font aspect ratio
         val estimatedWidth = text.length * fontSize * 0.6f
         val estimatedHeight = fontSize
-        // Since text is centered at 'offset', the rect is around that center
         return Rect(
             left = offset.x - estimatedWidth / 2f,
             top = offset.y - estimatedHeight / 2f,
