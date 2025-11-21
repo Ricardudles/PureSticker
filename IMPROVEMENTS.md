@@ -6,6 +6,8 @@ Este documento lista as melhorias planejadas e sugestões para evoluir o aplicat
 - [x] **Edição de Pacotes Existentes:** Melhorar o fluxo para editar nome, autor e outros metadados de um pacote já criado.
 - [x] **Visualização de Pacotes:** Modernizar a tela inicial com cards que mostram o ícone da bandeja e uma prévia das figurinhas.
 - [x] **Feedback de Carregamento:** Melhorar os indicadores de progresso durante a compressão de imagem (que pode demorar em aparelhos mais antigos).
+- [x] **Fluxo Inteligente:** Pré-seleção automática do pacote ao iniciar criação de dentro de um pack.
+- [x] **Segurança no Editor:** Botão de voltar com diálogo de confirmação para evitar perda de trabalho acidental (substituindo título estático).
 
 ## 2. Editor de Imagem Avançado
 - [x] **Recorte (Crop) e Rotação:** Integrar uma biblioteca (como uCrop/CanHub) para permitir recortar a imagem antes de salvar. Isso ajuda a focar no objeto principal.
@@ -27,3 +29,7 @@ Este documento lista as melhorias planejadas e sugestões para evoluir o aplicat
 ## 6. Validações Extras (Segurança)
 - [x] **Verificação de Duplicidade:** Avisar para o usuário que ele está adicionando exatamente a mesma imagem duas vezes no mesmo pacote e se ele quer prosseguir com a ação.
 - [x] **Limpeza de Arquivos Órfãos:** Criar uma rotina que verifica se existem arquivos de imagem na pasta do app que não estão vinculados a nenhum pacote no banco de dados (lixo) e apagá-los.
+
+## 7. Branding e Localização
+- [x] **Identidade Visual:** Renomeação do app para **PureSticker** (foco em simplicidade "No BS").
+- [x] **Internacionalização (i18n):** Refatoração completa para uso de `strings.xml`, com suporte nativo a Inglês (padrão) e Português (PT-BR).

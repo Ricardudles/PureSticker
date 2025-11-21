@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -27,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.wppsticker.R
 import com.example.wppsticker.data.local.StickerPackage
 import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.ui.util.LoadingDialog
@@ -81,13 +83,13 @@ fun SaveStickerScreen(
     if (showDuplicateDialog != null) {
         AlertDialog(
             onDismissRequest = { showDuplicateDialog = null },
-            title = { Text("Duplicate Sticker") },
-            text = { Text("This image already exists in this package. Do you want to add it anyway?") },
+            title = { Text(stringResource(R.string.duplicate_sticker_title)) },
+            text = { Text(stringResource(R.string.duplicate_sticker_msg)) },
             confirmButton = {
-                Button(onClick = { showDuplicateDialog?.invoke(); showDuplicateDialog = null }) { Text("Add Anyway") }
+                Button(onClick = { showDuplicateDialog?.invoke(); showDuplicateDialog = null }) { Text(stringResource(R.string.add_anyway)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDuplicateDialog = null }) { Text("Cancel") }
+                TextButton(onClick = { showDuplicateDialog = null }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -102,20 +104,20 @@ fun SaveStickerScreen(
 
         AlertDialog(
             onDismissRequest = { showNewPackageDialog = false },
-            title = { Text("Create New Package") },
+            title = { Text(stringResource(R.string.create_package_title)) },
             text = { 
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    OutlinedTextField(value = newPackageName, onValueChange = { newPackageName = it }, label = { Text("Package Name *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newPackageName, onValueChange = { newPackageName = it }, label = { Text(stringResource(R.string.package_name_required)) }, modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = newPackageAuthor, onValueChange = { newPackageAuthor = it }, label = { Text("Author *") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newPackageAuthor, onValueChange = { newPackageAuthor = it }, label = { Text(stringResource(R.string.author_required)) }, modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = newPackageEmail, onValueChange = { newPackageEmail = it }, label = { Text("Email (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newPackageEmail, onValueChange = { newPackageEmail = it }, label = { Text(stringResource(R.string.email_optional)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = newPackageWebsite, onValueChange = { newPackageWebsite = it }, label = { Text("Website (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newPackageWebsite, onValueChange = { newPackageWebsite = it }, label = { Text(stringResource(R.string.website_optional)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = newPackagePrivacyPolicy, onValueChange = { newPackagePrivacyPolicy = it }, label = { Text("Privacy Policy (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newPackagePrivacyPolicy, onValueChange = { newPackagePrivacyPolicy = it }, label = { Text(stringResource(R.string.privacy_policy_optional)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(value = newPackageLicense, onValueChange = { newPackageLicense = it }, label = { Text("License (Optional)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = newPackageLicense, onValueChange = { newPackageLicense = it }, label = { Text(stringResource(R.string.license_optional)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
                 }
             },
             confirmButton = {
@@ -124,9 +126,9 @@ fun SaveStickerScreen(
                         selectedPackage = createdPackage
                         showNewPackageDialog = false
                     }
-                }) { Text("Create") }
+                }) { Text(stringResource(R.string.create)) }
             },
-            dismissButton = { TextButton(onClick = { showNewPackageDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showNewPackageDialog = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 
@@ -135,7 +137,7 @@ fun SaveStickerScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { 
             TopAppBar(
-                title = { Text("Save Sticker", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.save_sticker_title), fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -143,7 +145,7 @@ fun SaveStickerScreen(
                 ),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             ) 
@@ -178,20 +180,20 @@ fun SaveStickerScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Select Emojis (Max 3)", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.select_emojis), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         OutlinedTextField(
                             value = selectedEmojis.joinToString(" "),
                             onValueChange = { }, 
                             readOnly = true,
-                            placeholder = { Text("Tap to select...") },
+                            placeholder = { Text(stringResource(R.string.tap_to_select)) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { showEmojiPicker = true }, 
                             trailingIcon = {
                                 IconButton(onClick = { showEmojiPicker = true }) {
-                                    Icon(Icons.Default.Add, contentDescription = "Select")
+                                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.select))
                                 }
                             },
                             enabled = false, 
@@ -206,7 +208,7 @@ fun SaveStickerScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        Text("Add to Package", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.add_to_package), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
@@ -214,7 +216,7 @@ fun SaveStickerScreen(
                                 value = selectedPackage?.name ?: "",
                                 onValueChange = {},
                                 readOnly = true,
-                                placeholder = { Text("Select a package...") },
+                                placeholder = { Text(stringResource(R.string.select_package_placeholder)) },
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                                 shape = RoundedCornerShape(12.dp),
@@ -232,7 +234,7 @@ fun SaveStickerScreen(
                                 }
                                 Divider()
                                 DropdownMenuItem(
-                                    text = { Text("+ Create New Package", color = MaterialTheme.colorScheme.primary) }, 
+                                    text = { Text(stringResource(R.string.create_new_package_option), color = MaterialTheme.colorScheme.primary) }, 
                                     onClick = { showNewPackageDialog = true; expanded = false }
                                 )
                             }
@@ -249,7 +251,7 @@ fun SaveStickerScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Save Sticker", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.save_sticker_btn), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -259,7 +261,7 @@ fun SaveStickerScreen(
                     onEmojiToggle = { emoji ->
                         if (selectedEmojis.contains(emoji)) selectedEmojis = selectedEmojis - emoji
                         else if (selectedEmojis.size < 3) selectedEmojis = selectedEmojis + emoji
-                        else Toast.makeText(context, "Max 3 emojis allowed", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, context.getString(R.string.max_emojis_error), Toast.LENGTH_SHORT).show()
                     },
                     onDismissRequest = { showEmojiPicker = false }
                 )

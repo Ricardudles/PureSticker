@@ -81,6 +81,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -91,6 +92,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.canhub.cropper.CropImageContract
+import com.example.wppsticker.R
 import com.example.wppsticker.nav.Screen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -127,15 +129,15 @@ fun EditorScreen(
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text("Exit Editor?") },
-            text = { Text("You will lose unsaved changes.") },
+            title = { Text(stringResource(R.string.exit_editor_title)) },
+            text = { Text(stringResource(R.string.exit_editor_msg)) },
             confirmButton = {
                 TextButton(onClick = { showExitDialog = false; navController.popBackStack() }) {
-                    Text("Exit", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.exit), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showExitDialog = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -144,12 +146,12 @@ fun EditorScreen(
         var textInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { viewModel.showTextDialog(false) },
-            title = { Text("New Text") },
+            title = { Text(stringResource(R.string.new_text_title)) },
             text = { 
                 TextField(
                     value = textInput, 
                     onValueChange = { textInput = it },
-                    placeholder = { Text("Type here...") },
+                    placeholder = { Text(stringResource(R.string.type_here_placeholder)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 ) 
@@ -158,10 +160,10 @@ fun EditorScreen(
                 Button(
                     onClick = { viewModel.addText(textInput) },
                     enabled = textInput.isNotBlank()
-                ) { Text("Add") } 
+                ) { Text(stringResource(R.string.add)) } 
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.showTextDialog(false) }) { Text("Cancel") }
+                TextButton(onClick = { viewModel.showTextDialog(false) }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -172,7 +174,7 @@ fun EditorScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = { showExitDialog = true }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back), tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -183,9 +185,9 @@ fun EditorScreen(
                 actions = {
                     // "Next" Button
                     TextButton(onClick = { viewModel.onSaveAndContinue() }) {
-                        Text("Next", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.next), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.ArrowForward, contentDescription = "Next")
+                        Icon(Icons.Default.ArrowForward, contentDescription = stringResource(R.string.next))
                     }
                 }
             )
@@ -388,7 +390,7 @@ fun MainToolsPanel(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "Magnet Strength: $snapStrength",
+                    stringResource(R.string.magnet_strength, snapStrength),
                     color = Color.Gray,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -423,13 +425,13 @@ fun MainToolsPanel(
         ) {
             ToolButton(
                 icon = Icons.Default.TextFields,
-                label = "Add Text",
+                label = stringResource(R.string.add_text),
                 onClick = onAddText
             )
             
             ToolButton(
                 icon = if (isSnapEnabled) Icons.Default.Grid3x3 else Icons.Default.GridOff,
-                label = "Magnet",
+                label = stringResource(R.string.magnet),
                 isActive = isSnapEnabled,
                 onClick = { onToggleSnap(!isSnapEnabled) }
             )
@@ -452,7 +454,7 @@ fun TextEditorPanel(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Customize Text", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.customize_text), color = Color.White, style = MaterialTheme.typography.titleMedium)
             Button(
                 onClick = onDone,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
@@ -460,12 +462,12 @@ fun TextEditorPanel(
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Done")
+                Text(stringResource(R.string.done))
             }
         }
 
         // Font Selector
-        Text("Font Style", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+        Text(stringResource(R.string.font_style), color = Color.Gray, style = MaterialTheme.typography.labelSmall)
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(listOf(0, 1, 2, 3, 4)) { index ->
@@ -568,11 +570,11 @@ fun StickerTextDisplay(text: String, color: Color, fontSize: TextUnit, fontIndex
 @Composable
 fun FontSelectorItem(index: Int, isSelected: Boolean, onClick: () -> Unit) {
     val label = when(index) {
-        0 -> "Default"
-        1 -> "Serif"
-        2 -> "Mono"
-        3 -> "Cursive"
-        4 -> "Bold"
+        0 -> stringResource(R.string.font_default)
+        1 -> stringResource(R.string.font_serif)
+        2 -> stringResource(R.string.font_mono)
+        3 -> stringResource(R.string.font_cursive)
+        4 -> stringResource(R.string.font_bold)
         else -> "?"
     }
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF333333)

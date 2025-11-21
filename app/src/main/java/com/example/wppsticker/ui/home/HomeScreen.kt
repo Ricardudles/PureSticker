@@ -101,7 +101,7 @@ fun HomeScreen(
                 whatsappLauncher.launch(intent)
             } catch (e: ActivityNotFoundException) {
                 Log.w(TAG, "Could not launch implicit intent", e)
-                Toast.makeText(context, "WhatsApp not found.", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.whatsapp_not_found), Toast.LENGTH_LONG).show()
                 viewModel.onSendIntentLaunched()
             }
         }
@@ -119,7 +119,7 @@ fun HomeScreen(
                 ),
                 actions = {
                     IconButton(onClick = { navController.navigate(Screen.Settings.name) }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
                     }
                 }
             )
@@ -130,7 +130,7 @@ fun HomeScreen(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Create Sticker")
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_sticker))
             }
         }
     ) { padding ->
@@ -176,8 +176,8 @@ fun EmptyState() {
                 modifier = Modifier.size(100.dp).alpha(0.5f)
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text("No sticker packs found", color = Color.Gray, style = MaterialTheme.typography.titleMedium)
-            Text("Tap + to create your first sticker!", color = Color.DarkGray)
+            Text(stringResource(R.string.no_packs_found), color = Color.Gray, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.tap_plus_create), color = Color.DarkGray)
         }
     }
 }
@@ -211,7 +211,7 @@ private fun StickerPackageItem(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "${stickerPackage.stickers.size} stickers • ${stickerPackage.stickerPackage.author}", 
+                        stringResource(R.string.stickers_by_author, stickerPackage.stickers.size, stickerPackage.stickerPackage.author), 
                         style = MaterialTheme.typography.bodySmall, 
                         color = Color.Gray
                     )
@@ -221,14 +221,14 @@ private fun StickerPackageItem(
                 IconButton(onClick = onSend) {
                     Icon(
                         Icons.AutoMirrored.Filled.Send, 
-                        contentDescription = "Send to WhatsApp",
+                        contentDescription = stringResource(R.string.send_to_whatsapp_desc),
                         tint = MaterialTheme.colorScheme.secondary // Green-ish accent
                     )
                 }
                 IconButton(onClick = onDelete) {
                     Icon(
                         Icons.Default.Delete, 
-                        contentDescription = "Delete",
+                        contentDescription = stringResource(R.string.delete_pack_desc),
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                     )
                 }
@@ -263,12 +263,12 @@ private fun StickerPackageItem(
                                         .data(File(context.filesDir, sticker.imageFile))
                                         .crossfade(true)
                                         .build(),
-                                    contentDescription = "More stickers",
+                                    contentDescription = stringResource(R.string.more_stickers_desc),
                                     modifier = Modifier.fillMaxSize(),
                                     colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.6f), blendMode = BlendMode.SrcOver)
                                 )
                                 Text(
-                                    text = "+${remainingCount + 1}",
+                                    text = stringResource(R.string.remaining_stickers_count, remainingCount + 1),
                                     color = Color.White,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold
@@ -290,7 +290,7 @@ private fun StickerPackageItem(
                     }
                 }
             } else {
-                Text("Empty pack", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(stringResource(R.string.empty_pack), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             }
         }
     }

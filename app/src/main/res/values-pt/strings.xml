@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PureSticker</string>
+    
+    <!-- Common -->
+    <string name="cancel">Cancelar</string>
+    <string name="save">Salvar</string>
+    <string name="delete">Excluir</string>
+    <string name="edit">Editar</string>
+    <string name="create">Criar</string>
+    <string name="add">Adicionar</string>
+    <string name="done">Concluído</string>
+    <string name="next">Próximo</string>
+    <string name="loading">Carregando...</string>
+    <string name="error">Erro</string>
+    <string name="exit">Sair</string>
+    
+    <!-- Home Screen -->
+    <string name="my_stickers">Minhas Figurinhas</string>
+    <string name="create_new_pack">Criar Novo Pacote</string>
+    <string name="no_packs_found">Nenhum pacote de figurinhas encontrado</string>
+    <string name="tap_plus_create">Toque em + para criar sua primeira figurinha!</string>
+    <string name="stickers_by_author">%1$d figurinhas • %2$s</string>
+    <string name="remaining_stickers_count">+%1$d</string>
+    <string name="empty_pack">Pacote vazio</string>
+    
+    <!-- Editor Screen -->
+    <string name="exit_editor_title">Sair do Editor?</string>
+    <string name="exit_editor_msg">Você perderá as alterações não salvas.</string>
+    <string name="new_text_title">Novo Texto</string>
+    <string name="type_here_placeholder">Digite aqui...</string>
+    <string name="customize_text">Personalizar Texto</string>
+    <string name="magnet_strength">Força do Ímã: %1$d</string>
+    <string name="magnet">Ímã</string>
+    <string name="add_text">Adicionar Texto</string>
+    <string name="font_style">Estilo da Fonte</string>
+    <string name="font_default">Padrão</string>
+    <string name="font_serif">Serif</string>
+    <string name="font_mono">Mono</string>
+    <string name="font_cursive">Cursiva</string>
+    <string name="font_bold">Negrito</string>
+    
+    <!-- Save Sticker Screen -->
+    <string name="save_sticker_title">Salvar Figurinha</string>
+    <string name="select_emojis">Selecione Emojis (Máx 3)</string>
+    <string name="tap_to_select">Toque para selecionar...</string>
+    <string name="add_to_package">Adicionar ao Pacote</string>
+    <string name="select_package_placeholder">Selecione um pacote...</string>
+    <string name="create_new_package_option">+ Criar Novo Pacote</string>
+    <string name="create_package_title">Criar Novo Pacote</string>
+    <string name="package_name_required">Nome do Pacote *</string>
+    <string name="author_required">Autor *</string>
+    <string name="email_optional">Email (Opcional)</string>
+    <string name="website_optional">Website (Opcional)</string>
+    <string name="privacy_policy_optional">Política de Privacidade (Opcional)</string>
+    <string name="license_optional">Licença (Opcional)</string>
+    <string name="save_sticker_btn">Salvar Figurinha</string>
+    <string name="duplicate_sticker_title">Figurinha Duplicada</string>
+    <string name="duplicate_sticker_msg">Esta imagem já existe neste pacote. Deseja adicionar mesmo assim?</string>
+    <string name="add_anyway">Adicionar</string>
+    <string name="max_emojis_error">Máximo 3 emojis permitidos</string>
+    
+    <!-- Package Screen -->
+    <string name="package_name">Nome do Pacote</string>
+    <string name="author">Autor</string>
+    <string name="email">Email</string>
+    <string name="website">Website</string>
+    <string name="privacy_policy_website">Site da Política de Privacidade</string>
+    <string name="license_website">Site da Licença</string>
+    <string name="edit_details">Editar Detalhes</string>
+    <string name="delete_sticker_title">Excluir Figurinha?</string>
+    <string name="delete_sticker_msg">Tem certeza que deseja remover esta figurinha do pacote? Isso não pode ser desfeito.</string>
+    <string name="delete_selection_title">Excluir %1$d Figurinhas?</string>
+    <string name="delete_selection_msg">Tem certeza que deseja remover as figurinhas selecionadas? Isso não pode ser desfeito.</string>
+    <string name="delete_all">Excluir Tudo</string>
+    <string name="selected_count">%1$d Selecionados</string>
+    <string name="add_to_whatsapp">Adicionar ao WhatsApp</string>
+    <string name="add_sticker">Adicionar Figurinha</string>
+    <string name="pack_empty">Este pacote está vazio.</string>
+    <string name="tap_plus_hint">Toque em + para criar uma figurinha</string>
+    <string name="pack_not_found">Pacote não encontrado</string>
+    <string name="whatsapp_not_found">WhatsApp não encontrado.</string>
+    
+    <!-- Toasts / VM messages -->
+    <string name="limit_packs_error">Você atingiu o limite de 10 Pacotes de Figurinhas.</string>
+    <string name="pkg_name_required_error">O Nome do Pacote é obrigatório.</string>
+    <string name="pkg_name_too_long_error">O Nome do Pacote é muito longo (máx 128 caracteres).</string>
+    <string name="author_required_error">O Autor é obrigatório.</string>
+    <string name="author_too_long_error">O nome do Autor é muito longo (máx 128 caracteres).</string>
+    <string name="invalid_email_error">Endereço de Email inválido.</string>
+    <string name="invalid_url_error">O Website deve começar com http:// ou https://</string>
+    <string name="limit_stickers_error">Este pacote atingiu o limite de 30 figurinhas.</string>
+    <string name="emoji_required_error">Pelo menos um emoji é necessário.</string>
+    <string name="error_saving">Erro ao salvar figurinha: %1$s</string>
+    <string name="error_loading_image">Erro ao carregar imagem da figurinha.</string>
+    <string name="error_compression">Não foi possível comprimir a figurinha para menos de 100KB.</string>
+    
+    <!-- Progress Messages -->
+    <string name="creating_package">Criando pacote...</string>
+    <string name="analyzing_image">Analisando imagem...</string>
+    <string name="processing_sticker">Processando figurinha...</string>
+    <string name="optimizing_sticker">Otimizando figurinha...</string>
+    <string name="generating_tray">Gerando ícone...</string>
+    
+    <!-- Accessibility -->
+    <string name="settings">Configurações</string>
+    <string name="create_sticker">Criar Figurinha</string>
+    <string name="send_to_whatsapp_desc">Enviar para o WhatsApp</string>
+    <string name="delete_pack_desc">Excluir Pacote</string>
+    <string name="more_stickers_desc">Mais figurinhas</string>
+    <string name="back">Voltar</string>
+    <string name="close_selection">Fechar Seleção</string>
+    <string name="delete_selected">Excluir Selecionados</string>
+    <string name="select">Selecionar</string>
+    <string name="selected">Selecionado</string>
+</resources>

@@ -69,12 +69,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.wppsticker.R
 import com.example.wppsticker.data.local.Sticker
 import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.util.UiState
@@ -173,13 +175,13 @@ fun PackageScreen(
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
-            title = { Text("Edit Details") },
+            title = { Text(stringResource(R.string.edit_details)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     TextField(
                         value = editName,
                         onValueChange = { editName = it },
-                        label = { Text("Name") },
+                        label = { Text(stringResource(R.string.package_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -187,7 +189,7 @@ fun PackageScreen(
                     TextField(
                         value = editAuthor,
                         onValueChange = { editAuthor = it },
-                        label = { Text("Author") },
+                        label = { Text(stringResource(R.string.author)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -195,7 +197,7 @@ fun PackageScreen(
                     TextField(
                         value = editEmail,
                         onValueChange = { editEmail = it },
-                        label = { Text("Email") },
+                        label = { Text(stringResource(R.string.email)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -203,7 +205,7 @@ fun PackageScreen(
                     TextField(
                         value = editWebsite,
                         onValueChange = { editWebsite = it },
-                        label = { Text("Website") },
+                        label = { Text(stringResource(R.string.website)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -211,7 +213,7 @@ fun PackageScreen(
                     TextField(
                         value = editPrivacyPolicy,
                         onValueChange = { editPrivacyPolicy = it },
-                        label = { Text("Privacy Policy Website") },
+                        label = { Text(stringResource(R.string.privacy_policy_website)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -219,7 +221,7 @@ fun PackageScreen(
                     TextField(
                         value = editLicense,
                         onValueChange = { editLicense = it },
-                        label = { Text("License Website") },
+                        label = { Text(stringResource(R.string.license_website)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -236,10 +238,10 @@ fun PackageScreen(
                         license = editLicense
                     )
                     showEditDialog = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showEditDialog = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -248,8 +250,8 @@ fun PackageScreen(
     if (showDeleteStickerDialog != null) {
         AlertDialog(
             onDismissRequest = { showDeleteStickerDialog = null },
-            title = { Text("Delete Sticker?") },
-            text = { Text("Are you sure you want to remove this sticker from the pack? This cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_sticker_title)) },
+            text = { Text(stringResource(R.string.delete_sticker_msg)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -258,12 +260,12 @@ fun PackageScreen(
                     },
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteStickerDialog = null }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -273,8 +275,8 @@ fun PackageScreen(
     if (showDeleteSelectionDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteSelectionDialog = false },
-            title = { Text("Delete ${selectedStickers.size} Stickers?") },
-            text = { Text("Are you sure you want to remove the selected stickers? This cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_selection_title, selectedStickers.size)) },
+            text = { Text(stringResource(R.string.delete_selection_msg)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -284,12 +286,12 @@ fun PackageScreen(
                     },
                     colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Delete All")
+                    Text(stringResource(R.string.delete_all))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteSelectionDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -299,11 +301,11 @@ fun PackageScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             val title = if (isSelectionMode) {
-                "${selectedStickers.size} Selected"
+                stringResource(R.string.selected_count, selectedStickers.size)
             } else if (stickerPackageState is UiState.Success) {
                 (stickerPackageState as UiState.Success).data.stickerPackage.name
             } else {
-                "Loading..."
+                stringResource(R.string.loading)
             }
             
             TopAppBar(
@@ -317,22 +319,22 @@ fun PackageScreen(
                 navigationIcon = {
                      if (isSelectionMode) {
                          IconButton(onClick = { selectedStickers = emptySet() }) {
-                             Icon(Icons.Default.Close, contentDescription = "Close Selection")
+                             Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close_selection))
                          }
                      } else {
                          IconButton(onClick = { navController.popBackStack() }) {
-                             Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                             Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
                          }
                      }
                 },
                 actions = {
                     if (isSelectionMode) {
                         IconButton(onClick = { showDeleteSelectionDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Selected")
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_selected))
                         }
                     } else if (stickerPackageState is UiState.Success) {
                         IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit")
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit))
                         }
                     }
                 }
@@ -353,7 +355,7 @@ fun PackageScreen(
                             contentColor = Color.White,
                             expanded = true,
                             icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
-                            text = { Text("Add to WhatsApp", fontWeight = FontWeight.Bold) }
+                            text = { Text(stringResource(R.string.add_to_whatsapp), fontWeight = FontWeight.Bold) }
                         )
                     }
                     
@@ -363,7 +365,7 @@ fun PackageScreen(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Sticker")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_sticker))
                     }
                 }
             }
@@ -380,9 +382,9 @@ fun PackageScreen(
                 is UiState.Success -> {
                     if (state.data.stickers.isEmpty()) {
                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("This pack is empty.", color = Color.Gray)
+                            Text(stringResource(R.string.pack_empty), color = Color.Gray)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Tap + to create a sticker", color = Color.DarkGray)
+                            Text(stringResource(R.string.tap_plus_hint), color = Color.DarkGray)
                         }
                     } else {
                         LazyVerticalGrid(
@@ -419,7 +421,7 @@ fun PackageScreen(
                     }
                 }
                 is UiState.Empty -> {
-                    Text("Pack not found", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.pack_not_found), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -470,7 +472,7 @@ private fun StickerItem(
                     if (isSelected) {
                         Icon(
                             Icons.Default.CheckCircle, 
-                            contentDescription = "Selected",
+                            contentDescription = stringResource(R.string.selected),
                             tint = Color.White,
                             modifier = Modifier.size(32.dp)
                         )
@@ -490,7 +492,7 @@ private fun StickerItem(
                 ) {
                     Icon(
                         Icons.Default.Delete, 
-                        contentDescription = "Delete",
+                        contentDescription = stringResource(R.string.delete),
                         tint = Color.White,
                         modifier = Modifier.size(16.dp)
                     )

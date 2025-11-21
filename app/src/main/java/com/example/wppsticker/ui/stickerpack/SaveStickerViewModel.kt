@@ -9,6 +9,7 @@ import android.util.Patterns
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.wppsticker.R
 import com.example.wppsticker.data.local.Sticker
 import com.example.wppsticker.data.local.StickerPackage
 import com.example.wppsticker.domain.usecase.AddStickerUseCase
@@ -99,42 +100,42 @@ class SaveStickerViewModel @Inject constructor(
         
         // --- LIMIT CHECK ---
         if (_stickerPackages.value.size >= 10) {
-            _events.emit(SaveStickerEvent.ShowToast("You have reached the limit of 10 Sticker Packs."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.limit_packs_error)))
             return@launch
         }
         
         // --- VALIDATIONS ---
         if (name.isBlank()) {
-            _events.emit(SaveStickerEvent.ShowToast("Package Name is required."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.pkg_name_required_error)))
             return@launch
         }
         if (name.length > 128) {
-            _events.emit(SaveStickerEvent.ShowToast("Package Name is too long (max 128 chars)."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.pkg_name_too_long_error)))
             return@launch
         }
         if (author.isBlank()) {
-            _events.emit(SaveStickerEvent.ShowToast("Author is required."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.author_required_error)))
             return@launch
         }
         if (author.length > 128) {
-             _events.emit(SaveStickerEvent.ShowToast("Author name is too long (max 128 chars)."))
+             _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.author_too_long_error)))
              return@launch
         }
         if (email.isNotEmpty() && !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _events.emit(SaveStickerEvent.ShowToast("Invalid Email address."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.invalid_email_error)))
             return@launch
         }
         if (website.isNotEmpty() && !isValidUrl(website)) {
-            _events.emit(SaveStickerEvent.ShowToast("Website must start with http:// or https://"))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.invalid_url_error)))
             return@launch
         }
         if (privacyPolicy.isNotEmpty() && !isValidUrl(privacyPolicy)) {
-            _events.emit(SaveStickerEvent.ShowToast("Privacy Policy must start with http:// or https://"))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.invalid_url_error)))
             return@launch
         }
         
         Log.d(TAG, "SaveStickerVM: Creating new package: $name by $author")
-        _loadingMessage.value = "Creating package..."
+        _loadingMessage.value = context.getString(R.string.creating_package)
         
         val newPackage = StickerPackage(
             name = name, 
@@ -157,25 +158,25 @@ class SaveStickerViewModel @Inject constructor(
         // --- LIMIT CHECK ---
         val currentPackDetails = getStickerPackageWithStickersUseCase(stickerPackage.id).first()
         if (currentPackDetails.stickers.size >= 30) {
-             _events.emit(SaveStickerEvent.ShowToast("This pack has reached the limit of 30 stickers."))
+             _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.limit_stickers_error)))
              return@launch
         }
 
         // --- VALIDATION ---
         val cleanedEmojis = emojis.trim()
         if (cleanedEmojis.isEmpty()) {
-            _events.emit(SaveStickerEvent.ShowToast("At least one emoji is required."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.emoji_required_error)))
             return@launch
         }
         val emojiList = cleanedEmojis.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         
         if (emojiList.size > 3) {
-            _events.emit(SaveStickerEvent.ShowToast("Max 3 emojis allowed per sticker."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.max_emojis_error)))
             return@launch
         }
 
         Log.d(TAG, "SaveStickerVM: Saving sticker to package '${stickerPackage.name}'")
-        _loadingMessage.value = "Analyzing image..."
+        _loadingMessage.value = context.getString(R.string.analyzing_image)
 
         withContext(Dispatchers.IO) {
             try {
@@ -199,7 +200,7 @@ class SaveStickerViewModel @Inject constructor(
 
             } catch(e: Exception) {
                 Log.e(TAG, "Error saving sticker", e)
-                _events.emit(SaveStickerEvent.ShowToast("Error saving sticker: ${e.message}"))
+                _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.error_saving, e.message)))
             } finally {
                 _loadingMessage.value = null
             }
@@ -207,16 +208,16 @@ class SaveStickerViewModel @Inject constructor(
     }
     
     private suspend fun proceedWithSave(stickerPackage: StickerPackage, emojis: List<String>, sourceFile: File, fileHash: String) {
-        _loadingMessage.value = "Processing sticker..."
+        _loadingMessage.value = context.getString(R.string.processing_sticker)
         val sourceBitmap = BitmapFactory.decodeFile(sourceFile.absolutePath)
         
         if (sourceBitmap == null) {
-            _events.emit(SaveStickerEvent.ShowToast("Error loading sticker image."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.error_loading_image)))
             return
         }
 
         // 1. Process Sticker (512x512, < 100KB)
-        _loadingMessage.value = "Optimizing sticker..."
+        _loadingMessage.value = context.getString(R.string.optimizing_sticker)
         val finalFileName = "${UUID.randomUUID()}.webp"
         val destinationFile = File(context.filesDir, finalFileName)
         
@@ -229,7 +230,7 @@ class SaveStickerViewModel @Inject constructor(
         )
 
         if (stickerFile == null) {
-            _events.emit(SaveStickerEvent.ShowToast("Could not compress sticker under 100KB."))
+            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.error_compression)))
             return
         }
 
@@ -257,7 +258,7 @@ class SaveStickerViewModel @Inject constructor(
         // 2. Process Tray Icon if needed (96x96, < 50KB)
         if (updatedPackage.trayImageFile.isEmpty()) {
             Log.d(TAG, "SaveStickerVM: Setting new tray icon.")
-            _loadingMessage.value = "Generating tray icon..."
+            _loadingMessage.value = context.getString(R.string.generating_tray)
             val trayFileName = "${UUID.randomUUID()}_tray.webp"
             val trayFileTarget = File(context.filesDir, trayFileName)
 

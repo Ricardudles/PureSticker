@@ -1,6 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">PureSticker</string>
+    
+    <!-- Common -->
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="delete">Delete</string>
+    <string name="edit">Edit</string>
+    <string name="create">Create</string>
+    <string name="add">Add</string>
+    <string name="done">Done</string>
+    <string name="next">Next</string>
+    <string name="loading">Loading...</string>
+    <string name="error">Error</string>
+    <string name="exit">Exit</string>
+    
+    <!-- Home Screen -->
+    <string name="my_stickers">My Stickers</string>
     <string name="create_new_pack">Create New Pack</string>
+    <string name="no_packs_found">No sticker packs found</string>
+    <string name="tap_plus_create">Tap + to create your first sticker!</string>
+    <string name="stickers_by_author">%1$d stickers • %2$s</string>
+    <string name="remaining_stickers_count">+%1$d</string>
+    <string name="empty_pack">Empty pack</string>
+
+    <!-- Editor Screen -->
+    <string name="exit_editor_title">Exit Editor?</string>
+    <string name="exit_editor_msg">You will lose unsaved changes.</string>
+    <string name="new_text_title">New Text</string>
+    <string name="type_here_placeholder">Type here...</string>
+    <string name="customize_text">Customize Text</string>
+    <string name="magnet_strength">Magnet Strength: %1$d</string>
+    <string name="magnet">Magnet</string>
+    <string name="add_text">Add Text</string>
+    <string name="font_style">Font Style</string>
+    <string name="font_default">Default</string>
+    <string name="font_serif">Serif</string>
+    <string name="font_mono">Mono</string>
+    <string name="font_cursive">Cursive</string>
+    <string name="font_bold">Bold</string>
+    
+    <!-- Save Sticker Screen -->
+    <string name="save_sticker_title">Save Sticker</string>
+    <string name="select_emojis">Select Emojis (Max 3)</string>
+    <string name="tap_to_select">Tap to select...</string>
+    <string name="add_to_package">Add to Package</string>
+    <string name="select_package_placeholder">Select a package...</string>
+    <string name="create_new_package_option">+ Create New Package</string>
+    <string name="create_package_title">Create New Package</string>
+    <string name="package_name_required">Package Name *</string>
+    <string name="author_required">Author *</string>
+    <string name="email_optional">Email (Optional)</string>
+    <string name="website_optional">Website (Optional)</string>
+    <string name="privacy_policy_optional">Privacy Policy (Optional)</string>
+    <string name="license_optional">License (Optional)</string>
+    <string name="save_sticker_btn">Save Sticker</string>
+    <string name="duplicate_sticker_title">Duplicate Sticker</string>
+    <string name="duplicate_sticker_msg">This image already exists in this package. Do you want to add it anyway?</string>
+    <string name="add_anyway">Add Anyway</string>
+    <string name="max_emojis_error">Max 3 emojis allowed</string>
+    
+    <!-- Package Screen -->
     <string name="package_name">Package Name</string>
+    <string name="author">Author</string>
+    <string name="email">Email</string>
+    <string name="website">Website</string>
+    <string name="privacy_policy_website">Privacy Policy Website</string>
+    <string name="license_website">License Website</string>
+    <string name="edit_details">Edit Details</string>
+    <string name="delete_sticker_title">Delete Sticker?</string>
+    <string name="delete_sticker_msg">Are you sure you want to remove this sticker from the pack? This cannot be undone.</string>
+    <string name="delete_selection_title">Delete %1$d Stickers?</string>
+    <string name="delete_selection_msg">Are you sure you want to remove the selected stickers? This cannot be undone.</string>
+    <string name="delete_all">Delete All</string>
+    <string name="selected_count">%1$d Selected</string>
+    <string name="add_to_whatsapp">Add to WhatsApp</string>
+    <string name="add_sticker">Add Sticker</string>
+    <string name="pack_empty">This pack is empty.</string>
+    <string name="tap_plus_hint">Tap + to create a sticker</string>
+    <string name="pack_not_found">Pack not found</string>
+    <string name="whatsapp_not_found">WhatsApp not found.</string>
+
+    <!-- Toasts / VM messages -->
+    <string name="limit_packs_error">You have reached the limit of 10 Sticker Packs.</string>
+    <string name="pkg_name_required_error">Package Name is required.</string>
+    <string name="pkg_name_too_long_error">Package Name is too long (max 128 chars).</string>
+    <string name="author_required_error">Author is required.</string>
+    <string name="author_too_long_error">Author name is too long (max 128 chars).</string>
+    <string name="invalid_email_error">Invalid Email address.</string>
+    <string name="invalid_url_error">Website must start with http:// or https://</string>
+    <string name="limit_stickers_error">This pack has reached the limit of 30 stickers.</string>
+    <string name="emoji_required_error">At least one emoji is required.</string>
+    <string name="error_saving">Error saving sticker: %1$s</string>
+    <string name="error_loading_image">Error loading sticker image.</string>
+    <string name="error_compression">Could not compress sticker under 100KB.</string>
+    
+    <!-- Progress Messages -->
+    <string name="creating_package">Creating package...</string>
+    <string name="analyzing_image">Analyzing image...</string>
+    <string name="processing_sticker">Processing sticker...</string>
+    <string name="optimizing_sticker">Optimizing sticker...</string>
+    <string name="generating_tray">Generating tray icon...</string>
+    
+    <!-- Accessibility & Content Descriptions -->
+    <string name="settings">Settings</string>
+    <string name="create_sticker">Create Sticker</string>
+    <string name="send_to_whatsapp_desc">Send to WhatsApp</string>
+    <string name="delete_pack_desc">Delete Pack</string>
+    <string name="more_stickers_desc">More stickers</string>
+    <string name="back">Back</string>
+    <string name="close_selection">Close Selection</string>
+    <string name="delete_selected">Delete Selected</string>
+    <string name="select">Select</string>
+    <string name="selected">Selected</string>
 </resources>
