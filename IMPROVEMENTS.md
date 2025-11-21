@@ -15,7 +15,6 @@ Este documento lista as melhorias planejadas e sugestões para evoluir o aplicat
 ## 3. Funcionalidades Avançadas
 - [ ] **Figurinhas Animadas:** Adicionar suporte para importar GIFs ou WebPs animados. (Requer validação extra: < 500KB, duração < 10s).
 - [x] **Seletor de Emojis Visual:** Substituir o campo de texto de emojis por um "Grid" de emojis clicáveis, facilitando a seleção sem depender do teclado do usuário.
-- [ ] **Importação em Lote:** Permitir selecionar múltiplas imagens da galeria de uma vez para criar várias figurinhas rapidamente.
 
 ## 4. Melhorias Técnicas e Performance
 - [ ] **Processamento em Background:** Usar `WorkManager` para processar a compressão de imagens, evitando travar a UI se o usuário adicionar muitas figurinhas seguidas.

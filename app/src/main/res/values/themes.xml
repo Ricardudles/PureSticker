@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.WppSticker" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.PureSticker" parent="android:Theme.Material.NoActionBar">
         <item name="android:statusBarColor">#121212</item>
         <item name="android:windowBackground">#121212</item>
     </style>
