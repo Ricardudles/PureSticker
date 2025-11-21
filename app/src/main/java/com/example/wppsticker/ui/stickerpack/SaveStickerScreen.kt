@@ -39,6 +39,7 @@ fun SaveStickerScreen(
     viewModel: SaveStickerViewModel = hiltViewModel()
 ) {
     val packages by viewModel.stickerPackages.collectAsState()
+    val preSelectedPackage by viewModel.preSelectedPackage.collectAsState()
     val saveFinished by viewModel.saveFinished.collectAsState()
     val loadingMessage by viewModel.loadingMessage.collectAsState()
     
@@ -46,6 +47,13 @@ fun SaveStickerScreen(
     val context = LocalContext.current
 
     var selectedPackage by remember { mutableStateOf<StickerPackage?>(null) }
+    
+    LaunchedEffect(preSelectedPackage) {
+        if (preSelectedPackage != null && selectedPackage == null) {
+            selectedPackage = preSelectedPackage
+        }
+    }
+    
     var selectedEmojis by remember { mutableStateOf<List<String>>(emptyList()) }
     var showEmojiPicker by remember { mutableStateOf(false) }
     var showNewPackageDialog by remember { mutableStateOf(false) }

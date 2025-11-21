@@ -25,12 +25,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -82,7 +80,6 @@ import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.util.UiState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
-import kotlinx.coroutines.flow.collectLatest
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -105,12 +102,19 @@ fun PackageScreen(
     val isSelectionMode = selectedStickers.isNotEmpty()
     var showDeleteSelectionDialog by remember { mutableStateOf(false) }
 
+    val currentPackageId = (stickerPackageState as? UiState.Success)?.data?.stickerPackage?.id
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
             uri?.let {
                 val encodedUri = URLEncoder.encode(it.toString(), StandardCharsets.UTF_8.toString())
-                navController.navigate("${Screen.Editor.name}/$encodedUri")
+                val route = if (currentPackageId != null) {
+                    "${Screen.Editor.name}/$encodedUri?packageId=$currentPackageId"
+                } else {
+                    "${Screen.Editor.name}/$encodedUri"
+                }
+                navController.navigate(route)
             }
         }
     )

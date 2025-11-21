@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import coil.request.ImageRequest
+import com.example.wppsticker.nav.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.abs
@@ -61,6 +64,8 @@ class EditorViewModel @Inject constructor(
     
     private val _snapStrength = MutableStateFlow(3) // Default Level 3
     val snapStrength: StateFlow<Int> = _snapStrength.asStateFlow()
+
+    val packageIdArg: Int = savedStateHandle.get<Int>("packageId") ?: -1
 
     // Raw state to prevent "stuck" snap behavior
     private var rawOffset = Offset.Zero
@@ -320,7 +325,12 @@ class EditorViewModel @Inject constructor(
         }
         
         val file = saveBitmapToTempFile(finalBitmap)
-        _navigateToSave.value = Uri.fromFile(file).toString()
+        val encodedUri = URLEncoder.encode(Uri.fromFile(file).toString(), StandardCharsets.UTF_8.toString())
+        var route = "${Screen.SaveSticker.name}/$encodedUri"
+        if (packageIdArg != -1) {
+            route += "?packageId=$packageIdArg"
+        }
+        _navigateToSave.value = route
         _isBusy.value = false
     }
 

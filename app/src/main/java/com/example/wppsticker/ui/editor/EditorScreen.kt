@@ -91,8 +91,6 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.canhub.cropper.CropImageContract
 import com.example.wppsticker.nav.Screen
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -118,9 +116,8 @@ fun EditorScreen(
     }
 
     LaunchedEffect(navigateToSave) {
-        navigateToSave?.let {
-            val encodedUri = URLEncoder.encode(it, StandardCharsets.UTF_8.toString())
-            navController.navigate("${Screen.SaveSticker.name}/$encodedUri")
+        navigateToSave?.let { route ->
+            navController.navigate(route)
             viewModel.onNavigatedToSave()
         }
     }

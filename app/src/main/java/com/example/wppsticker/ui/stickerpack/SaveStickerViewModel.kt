@@ -56,9 +56,13 @@ class SaveStickerViewModel @Inject constructor(
 ) : ViewModel() {
 
     val stickerUri: Uri = Uri.parse(checkNotNull(savedStateHandle["stickerUri"]))
+    val packageIdArg: Int = savedStateHandle.get<Int>("packageId") ?: -1
 
     private val _stickerPackages = MutableStateFlow<List<StickerPackage>>(emptyList())
     val stickerPackages = _stickerPackages.asStateFlow()
+    
+    private val _preSelectedPackage = MutableStateFlow<StickerPackage?>(null)
+    val preSelectedPackage = _preSelectedPackage.asStateFlow()
 
     // Changed from isBusy to loadingMessage for better feedback
     private val _loadingMessage = MutableStateFlow<String?>(null)
@@ -75,8 +79,11 @@ class SaveStickerViewModel @Inject constructor(
     }
 
     private fun loadPackages() {
-        getStickerPackagesUseCase().onEach { 
-            _stickerPackages.value = it
+        getStickerPackagesUseCase().onEach { packages ->
+            _stickerPackages.value = packages
+            if (packageIdArg != -1) {
+                _preSelectedPackage.value = packages.find { it.id == packageIdArg }
+            }
         }.launchIn(viewModelScope)
     }
 

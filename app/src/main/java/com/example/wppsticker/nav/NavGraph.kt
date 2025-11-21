@@ -47,14 +47,20 @@ fun NavGraph() {
             PackageScreen(navController = navController)
         }
         composable(
-            route = "${Screen.Editor.name}/{imageUri}",
-            arguments = listOf(navArgument("imageUri") { type = NavType.StringType })
+            route = "${Screen.Editor.name}/{imageUri}?packageId={packageId}",
+            arguments = listOf(
+                navArgument("imageUri") { type = NavType.StringType },
+                navArgument("packageId") { type = NavType.IntType; defaultValue = -1 }
+            )
         ) {
             EditorScreen(navController = navController)
         }
         composable(
-            route = "${Screen.SaveSticker.name}/{stickerUri}",
-            arguments = listOf(navArgument("stickerUri") { type = NavType.StringType })
+            route = "${Screen.SaveSticker.name}/{stickerUri}?packageId={packageId}",
+            arguments = listOf(
+                navArgument("stickerUri") { type = NavType.StringType },
+                navArgument("packageId") { type = NavType.IntType; defaultValue = -1 }
+            )
         ) {
             SaveStickerScreen(navController = navController)
         }
