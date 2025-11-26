@@ -1,8 +1,6 @@
 package com.example.wppsticker.ui.editor
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -36,15 +34,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Grid3x3
 import androidx.compose.material.icons.filled.GridOff
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -53,13 +55,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -85,15 +87,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.canhub.cropper.CropImageContract
 import com.example.wppsticker.R
-import com.example.wppsticker.nav.Screen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -110,6 +110,8 @@ fun EditorScreen(
     val navigateToSave by viewModel.navigateToSave.collectAsState()
     val isSnapEnabled by viewModel.isSnapEnabled.collectAsState()
     val snapStrength by viewModel.snapStrength.collectAsState()
+    val canUndo by viewModel.canUndo.collectAsState()
+    val canRedo by viewModel.canRedo.collectAsState()
     
     var showExitDialog by remember { mutableStateOf(false) }
 
@@ -148,11 +150,15 @@ fun EditorScreen(
             onDismissRequest = { viewModel.showTextDialog(false) },
             title = { Text(stringResource(R.string.new_text_title)) },
             text = { 
-                TextField(
+                OutlinedTextField(
                     value = textInput, 
                     onValueChange = { textInput = it },
                     placeholder = { Text(stringResource(R.string.type_here_placeholder)) },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { 
+                        if (textInput.isNotBlank()) viewModel.addText(textInput) 
+                    }),
                     modifier = Modifier.fillMaxWidth()
                 ) 
             },
@@ -174,7 +180,7 @@ fun EditorScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = { showExitDialog = true }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back), tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -183,11 +189,29 @@ fun EditorScreen(
                     actionIconContentColor = MaterialTheme.colorScheme.primary
                 ),
                 actions = {
+                    // Undo Button
+                    IconButton(onClick = { viewModel.undo() }, enabled = canUndo) {
+                         Icon(
+                             Icons.AutoMirrored.Filled.Undo, 
+                             contentDescription = "Undo",
+                             tint = if (canUndo) Color.White else Color.Gray
+                         )
+                    }
+                    
+                    // Redo Button
+                    IconButton(onClick = { viewModel.redo() }, enabled = canRedo) {
+                         Icon(
+                             Icons.AutoMirrored.Filled.Redo, 
+                             contentDescription = "Redo",
+                             tint = if (canRedo) Color.White else Color.Gray
+                         )
+                    }
+                    
                     // "Next" Button
                     TextButton(onClick = { viewModel.onSaveAndContinue() }) {
                         Text(stringResource(R.string.next), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Icon(Icons.Default.ArrowForward, contentDescription = stringResource(R.string.next))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.next))
                     }
                 }
             )
@@ -206,6 +230,9 @@ fun EditorScreen(
                     .padding(bottom = 180.dp), // Reserve space for the Bottom Dock
                 contentAlignment = Alignment.Center
             ) {
+                // Use maxWidth/maxHeight directly. The linter might complain if we don't use 'constraints' explicitly,
+                // but minOf(maxWidth, maxHeight) is a valid usage of BoxWithConstraintsScope.
+                @Suppress("UnusedBoxWithConstraintsScope")
                 val workspaceSize = minOf(maxWidth, maxHeight) * 0.9f // Add some breathing room
                 val density = LocalDensity.current
                 
@@ -244,6 +271,9 @@ fun EditorScreen(
                             }
                             .pointerInput(Unit) {
                                 detectTransformGestures { _, pan, zoom, rotation ->
+                                    // Signal start of gesture (will only trigger undo save once per sequence)
+                                    viewModel.onGestureStart()
+                                    
                                     if (viewModel.selectedTextId.value == null) {
                                         val canvasPan = pan * scaleToCanvas
                                         viewModel.updateImageState(offset = canvasPan, scale = zoom, rotation = rotation)
@@ -295,6 +325,7 @@ fun EditorScreen(
                                     .pointerInput(textData.id, isSelected) {
                                         if (isSelected) {
                                             detectTransformGestures { _, pan, zoom, rotation ->
+                                                viewModel.onGestureStart()
                                                 val canvasPan = pan * scaleToCanvas
                                                 viewModel.updateSelectedText(offset = canvasPan, scale = zoom, rotation = rotation)
                                             }
@@ -354,7 +385,8 @@ fun EditorScreen(
                             snapStrength = snapStrength,
                             onAddText = { viewModel.showTextDialog(true) },
                             onToggleSnap = { viewModel.toggleSnap(it) },
-                            onChangeSnapStrength = { viewModel.setSnapStrength(it) }
+                            onChangeSnapStrength = { viewModel.setSnapStrength(it) },
+                            onRemoveBackground = { viewModel.removeBackground() }
                         )
                     }
                 }
@@ -375,7 +407,8 @@ fun MainToolsPanel(
     snapStrength: Int,
     onAddText: () -> Unit,
     onToggleSnap: (Boolean) -> Unit,
-    onChangeSnapStrength: (Int) -> Unit
+    onChangeSnapStrength: (Int) -> Unit,
+    onRemoveBackground: () -> Unit
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         
@@ -427,6 +460,12 @@ fun MainToolsPanel(
                 icon = Icons.Default.TextFields,
                 label = stringResource(R.string.add_text),
                 onClick = onAddText
+            )
+            
+            ToolButton(
+                icon = Icons.Default.AutoFixHigh,
+                label = stringResource(R.string.remove_background),
+                onClick = onRemoveBackground
             )
             
             ToolButton(

@@ -27,7 +27,6 @@ class StickerContentProvider : ContentProvider() {
         private const val METADATA = 1
         private const val METADATA_ID = 2
         private const val STICKERS_ID = 3
-        private const val STICKERS_ASSET = 4
         private const val STICKERS_ASSET_ID = 5
 
         private val uriMatcher = UriMatcher(UriMatcher.NO_MATCH)
@@ -43,10 +42,6 @@ class StickerContentProvider : ContentProvider() {
             uriMatcher.addURI(AUTHORITY, "metadata/*", METADATA_ID) // Changed to * to support String identifier
             uriMatcher.addURI(AUTHORITY, "stickers/*", STICKERS_ID) // Changed to * to support String identifier
             uriMatcher.addURI(AUTHORITY, "stickers_asset/*/*", STICKERS_ASSET_ID) // Changed to * to support String identifier
-            
-            // Fallback paths
-            uriMatcher.addURI(AUTHORITY, "sticker_packs/*", METADATA_ID)
-            uriMatcher.addURI(AUTHORITY, "sticker_packs/*/stickers", STICKERS_ID)
             
             Log.d(TAG, "ContentProvider onCreate. Authority: $AUTHORITY")
             return true
@@ -79,7 +74,7 @@ class StickerContentProvider : ContentProvider() {
                                 for (pack in allPackages) {
                                     // Verify tray file exists
                                     val trayFile = File(context.filesDir, pack.trayImageFile)
-                                    if (!trayFile.exists()) {
+                                    if (pack.trayImageFile.isBlank() || !trayFile.exists()) {
                                         Log.w(TAG, "[QUERY] Skipping pack ${pack.name} because tray file missing: ${pack.trayImageFile}")
                                         continue
                                     }
@@ -96,7 +91,8 @@ class StickerContentProvider : ContentProvider() {
                                         pack.privacyPolicyWebsite,
                                         pack.licenseAgreementWebsite,
                                         pack.imageDataVersion, 
-                                        "0"
+                                        "0", // avoid_cache (deprecated)
+                                        if (pack.animated) 1 else 0 // animated_sticker_pack (Renamed property)
                                     )
                                     cursor.addRow(row)
                                 }
@@ -107,14 +103,12 @@ class StickerContentProvider : ContentProvider() {
                                 if (identifier == null) return@withContext null
 
                                 Log.d(TAG, "[QUERY] Fetching metadata for pack $identifier")
-                                // We now search by identifier (String/UUID), not database ID (Int)
                                 val stickerPackage = stickerRepository.getStickerPackageWithStickersByIdentifierSync(identifier)
 
                                 if (stickerPackage == null) return@withContext null
                                 
-                                // Verify tray file exists
                                 val trayFile = File(context.filesDir, stickerPackage.stickerPackage.trayImageFile)
-                                if (!trayFile.exists()) {
+                                if (stickerPackage.stickerPackage.trayImageFile.isBlank() || !trayFile.exists()) {
                                     Log.e(TAG, "[QUERY] Tray file missing for requested pack: ${stickerPackage.stickerPackage.trayImageFile}")
                                     return@withContext null
                                 }
@@ -132,7 +126,8 @@ class StickerContentProvider : ContentProvider() {
                                     stickerPackage.stickerPackage.privacyPolicyWebsite,
                                     stickerPackage.stickerPackage.licenseAgreementWebsite,
                                     stickerPackage.stickerPackage.imageDataVersion, 
-                                    "0"
+                                    "0", // avoid_cache
+                                    if (stickerPackage.stickerPackage.animated) 1 else 0 // animated_sticker_pack (Renamed property)
                                 )
                                 cursor.addRow(row)
                                 cursor
@@ -152,7 +147,6 @@ class StickerContentProvider : ContentProvider() {
                                 ))
 
                                 stickerPackage.stickers.forEach {
-                                    // Verify sticker file exists
                                     val stickerFile = File(context.filesDir, it.imageFile)
                                     if (stickerFile.exists()) {
                                         cursor.addRow(arrayOf(it.imageFile, it.emojis.joinToString(",")))
@@ -192,7 +186,8 @@ class StickerContentProvider : ContentProvider() {
             "sticker_pack_privacy_policy_website",
             "sticker_pack_license_agreement_website",
             "image_data_version",
-            "avoid_cache"
+            "avoid_cache",
+            "animated_sticker_pack"
         ))
     }
 
@@ -201,7 +196,6 @@ class StickerContentProvider : ContentProvider() {
         return try {
             val fileName = uri.lastPathSegment ?: throw IllegalArgumentException("Invalid URI")
             
-            // Security check
             if (fileName.contains("..") || fileName.contains("/")) {
                 throw SecurityException("Invalid filename")
             }
@@ -219,14 +213,13 @@ class StickerContentProvider : ContentProvider() {
         }
     }
     
-    override fun getType(uri: Uri): String? {
-        val match = uriMatcher.match(uri)
-        return when (match) {
-            METADATA -> "vnd.android.cursor.dir/vnd.${AUTHORITY}.sticker_pack"
-            METADATA_ID -> "vnd.android.cursor.item/vnd.${AUTHORITY}.sticker_pack"
-            STICKERS_ID -> "vnd.android.cursor.dir/vnd.${AUTHORITY}.sticker_pack_stickers"
-            STICKERS_ASSET, STICKERS_ASSET_ID -> "image/webp"
-            else -> null
+    override fun getType(uri: Uri): String {
+        val path = uri.path ?: ""
+        return if (path.endsWith(".webp")) {
+            "image/webp"
+        } else {
+            // Default or query-based type can be handled here if needed
+            "application/octet-stream"
         }
     }
 

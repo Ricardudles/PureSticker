@@ -1,6 +1,7 @@
 package com.example.wppsticker.ui.settings
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,7 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -43,10 +45,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.wppsticker.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,12 +66,12 @@ fun RestorePreviewScreen(
     LaunchedEffect(restoreState) {
         when (restoreState) {
             is RestoreUiState.Success -> {
-                Toast.makeText(context, "Restore successful!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.restore_success_toast), Toast.LENGTH_LONG).show()
                 navController.popBackStack()
             }
             is RestoreUiState.Error -> {
                 val message = (restoreState as RestoreUiState.Error).message
-                Toast.makeText(context, "Error: $message", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, context.getString(R.string.restore_error_toast, message), Toast.LENGTH_LONG).show()
             }
             else -> { /* Idle or Loading */ }
         }
@@ -77,7 +81,7 @@ fun RestorePreviewScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { 
             TopAppBar(
-                title = { Text("Select Packs to Restore", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.restore_preview_title), fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -85,7 +89,7 @@ fun RestorePreviewScreen(
                 ),
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             ) 
@@ -96,6 +100,7 @@ fun RestorePreviewScreen(
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(16.dp)
+                    .navigationBarsPadding() // <- FIX: Added safe area padding
             ) {
                 Button(
                     onClick = { viewModel.restoreSelected() },
@@ -110,7 +115,7 @@ fun RestorePreviewScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Restore Selected (${selectedPackages.size})")
+                        Text(stringResource(R.string.restore_selected_button, selectedPackages.size))
                     }
                 }
             }
@@ -151,7 +156,7 @@ private fun RestoreItem(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) 
                              else MaterialTheme.colorScheme.surface
         ),
-        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = isEnabled) { onToggle() }
@@ -178,7 +183,7 @@ private fun RestoreItem(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${backupInfo.backupPackage.stickers.size} stickers • ${backupInfo.backupPackage.author}", 
+                    text = stringResource(R.string.stickers_by_author, backupInfo.backupPackage.stickers.size, backupInfo.backupPackage.author), 
                     style = MaterialTheme.typography.bodySmall, 
                     color = Color.Gray
                 )
@@ -189,7 +194,7 @@ private fun RestoreItem(
                         Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Yellow, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Already exists", 
+                            text = stringResource(R.string.package_exists_label), 
                             style = MaterialTheme.typography.labelSmall, 
                             color = Color.Yellow
                         )

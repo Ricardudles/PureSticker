@@ -1,80 +1,124 @@
-# Documentação do Projeto WppSticker
+# PureSticker - Documentação Técnica Completa
 
-Este documento resume o estado atual do desenvolvimento, as decisões técnicas tomadas e as funcionalidades implementadas até o momento. Serve como um ponto de restauração de contexto para futuras sessões de desenvolvimento.
-
-## 1. Visão Geral
-O **WppSticker** é um aplicativo Android para criação, gerenciamento e compartilhamento de pacotes de figurinhas para o WhatsApp. Ele permite aos usuários importar imagens, editá-las (cortar, adicionar texto), organizar em pacotes e enviar diretamente para o WhatsApp.
-
-## 2. Stack Tecnológica
--   **Linguagem:** Kotlin
--   **UI Toolkit:** Jetpack Compose
--   **Arquitetura:** MVVM (Model-View-ViewModel) com Clean Architecture
--   **Injeção de Dependência:** Hilt
--   **Banco de Dados:** Room
--   **Navegação:** Jetpack Navigation Compose
--   **Carregamento de Imagens:** Coil
--   **Edição de Imagem:** Canvas API (Nativo) + Android-Image-Cropper (CanHub)
--   **Assincronismo:** Coroutines & Flow
-
-## 3. Funcionalidades Implementadas
-
-### 3.1. Tela Inicial (`HomeScreen`)
--   **Lista de Pacotes:** Exibe os pacotes criados em `Cards` modernos com fundo escuro.
--   **Prévia Inteligente:**
-    -   Mostra as primeiras figurinhas do pacote.
-    -   **Contador Sobreposto:** Caso haja mais de 6 figurinhas, a última imagem da prévia recebe um overlay escuro com o contador "+N" (onde N é o número de figurinhas restantes), em vez de ocupar um slot vazio.
--   **Ações Rápidas:** Botões para enviar para o WhatsApp e excluir o pacote.
--   **Design:** Tema escuro (`#121212`), sem ícone de bandeja redundante, foco no conteúdo.
-
-### 3.2. Tela de Detalhes do Pacote (`PackageScreen`)
--   **Grid de Figurinhas:** Exibição limpa das figurinhas em 3 colunas.
--   **Botões de Ação (FABs):**
-    -   **Add Sticker:** Botão flutuante roxo (padrão) no canto inferior direito.
-    -   **Add to WhatsApp:** Botão "Extended FAB" verde (pílula) posicionado ao lado do botão de adicionar, facilitando a exportação rápida.
-    -   Ambos os botões respeitam as margens de navegação do sistema (`navigationBarsPadding`).
--   **Seleção Múltipla:** Toque longo ativa o modo de seleção para excluir várias figurinhas de uma vez.
--   **Edição de Metadados:** Permite editar nome, autor, email, site, política de privacidade e licença do pacote com validações robustas.
--   **Feedback:** Uso de `Toast` para informar sucesso ou erros de validação.
-
-### 3.3. Editor de Figurinhas (`EditorScreen`)
--   **WYSIWYG:** O que você vê na tela é exatamente o que será salvo (fontes e proporções consistentes).
--   **Ferramentas:**
-    -   **Corte:** Integração com CropImage.
-    -   **Texto:** Adição de textos com múltiplas fontes, cores e redimensionamento/rotação.
-    -   **Imã (Snap):** Sistema inteligente de alinhamento (snap) para centralizar e alinhar elementos.
--   **Interface:** Dock flutuante na parte inferior para ferramentas, maximizando a área de trabalho.
-
-### 3.4. Salvamento (`SaveStickerScreen`)
--   **Seleção de Pacote:** Escolha fácil do pacote de destino ou criação de um novo.
--   **Emojis:** Seletor de emojis completo e categorizado para metadados da figurinha (exigência do WhatsApp).
--   **Validações:** Verifica limites de tamanho (KB) e dimensões (512x512px) automaticamente.
-
-### 3.5. Configurações e Backup (`SettingsScreen` / `RestorePreviewScreen`)
--   **Backup:** Exporta todos os pacotes e imagens para um arquivo ZIP.
--   **Restauração:** Importa backups ZIP, verificando duplicatas antes de restaurar.
--   **Limpeza:** Ferramenta para remover imagens órfãs (não usadas em nenhum pacote) e liberar espaço.
-
-## 4. Design System
--   **Tema:** Dark Mode forçado para consistência com ferramentas de edição profissionais.
--   **Cores:**
-    -   Fundo: `#121212` (Almost Black)
-    -   Superfícies: `#1E1E1E` (Dark Grey)
-    -   Primária: `#BB86FC` (Soft Purple)
-    -   Secundária: `#03DAC6` (Teal) e `#25D366` (WhatsApp Green)
--   **Transições:** Animações suaves de slide e fade entre todas as telas.
--   **Componentes:** Uso extensivo de `Card` com `RoundedCornerShape(16.dp)` e `Elevation`.
-
-## 5. Melhorias Recentes (Sessão Atual)
--   **Flash Branco Eliminado:** Configurado `android:windowBackground` para `#121212` no tema XML.
--   **Transições Suaves:** Implementadas animações globais no `NavHost`.
--   **Concorrência Resolvida:** Corrigido bug no `PackageViewModel` que sobrescrevia edições ao salvar.
--   **Validações de Pacote:** Adicionadas validações de nome, autor e URL na edição de pacotes.
--   **Layout de Botões:** Ajustado `PackageScreen` para ter botões "Add Sticker" e "Add to WhatsApp" lado a lado.
--   **Prévia Melhorada:** Implementada lógica de overlay "+N" na última imagem da prévia na Home.
-
-## 6. Próximos Passos (Backlog Imediato)
--   **Correção de Contagem:** Verificar se a contagem "+N" na `HomeScreen` está exibindo o valor correto (atualmente parece travada ou incorreta).
--   **Testes Finais:** Validar fluxo de ponta a ponta.
+Bem-vindo à documentação técnica unificada do **PureSticker**. Este documento serve como guia definitivo sobre a arquitetura, fluxos de dados, decisões técnicas e estrutura do projeto.
 
 ---
-*Gerado automaticamente pela IA Assistente em 27/05/2024.*
+
+## 📱 Visão Geral do Produto
+
+O PureSticker é um aplicativo Android nativo desenvolvido para criação e gerenciamento de pacotes de figurinhas para o WhatsApp. Ele suporta tanto figurinhas estáticas (imagens) quanto animadas (WebP/GIF), com ferramentas de edição integradas.
+
+### Principais Funcionalidades
+1.  **Gerenciamento de Pacotes:** Criação, edição e exclusão de pacotes de figurinhas.
+2.  **Editor de Imagens:** Ferramentas para adicionar texto, cortar, remover fundo e posicionar elementos com sistema Undo/Redo.
+3.  **Editor de Vídeo:** Pipeline de conversão e edição de vídeos para o formato WebP animado compatível com WhatsApp, utilizando Media3.
+4.  **Integração com WhatsApp:** Uso de ContentProvider para exportar pacotes diretamente para o aplicativo de mensagens.
+5.  **Backup e Restauração:** Persistência externa de pacotes via arquivos ZIP com pré-visualização seletiva.
+6.  **Internacionalização:** Suporte completo a Inglês (en) e Português (pt-BR).
+
+---
+
+## 🏗️ Arquitetura e Stack Tecnológica
+
+O projeto segue os princípios de **Modern Android Development (MAD)** e **Clean Architecture** simplificada.
+
+| Camada | Tecnologias Principais | Descrição |
+| :--- | :--- | :--- |
+| **UI (Presentation)** | Jetpack Compose (Material3), Navigation Compose, ViewModels | Interface declarativa reativa, tema Material You. |
+| **Domain** | Kotlin UseCases, Models | Regras de negócio puras, agnósticas de framework UI. |
+| **Data** | Room, DataStore, File System, ContentProviders | Persistência local, acesso a arquivos e integração com outros apps. |
+| **DI** | Hilt (Dagger) | Injeção de dependência para desacoplamento. |
+| **Processamento** | Coroutines, Media3 Transformer, Coil | Processamento assíncrono e manipulação de mídia. |
+
+### Estrutura de Diretórios (`com.example.wppsticker`)
+
+*   `data`: Implementação de repositórios, fontes de dados (Room) e modelos de dados (Entities).
+    *   `local`: Definições do Room (`Sticker`, `StickerPackage`, `StickerDao`, `AppDatabase`).
+*   `di`: Módulos Hilt para injeção de dependências (`AppModule`, `DatabaseModule`).
+*   `domain`: Contratos de repositório (`StickerRepository`) e Casos de Uso (`UseCases`).
+*   `nav`: Definição do grafo de navegação (`NavGraph`, `Screen`).
+*   `provider`: Implementação do `StickerContentProvider` exigido pelo WhatsApp.
+*   `ui`: Telas (Composables) e seus respectivos ViewModels.
+    *   `home`: Tela principal e listagem.
+    *   `editor`: Editor de imagens estáticas.
+    *   `videoeditor`: Editor de vídeos animados.
+    *   `stickerpack`: Detalhes do pacote e fluxo de salvamento.
+    *   `settings`: Configurações, backup e restauração.
+*   `util`: Classes utilitárias, Extensions e Estados de UI (`UiState`).
+
+---
+
+## 🎨 Diretrizes de UI/UX
+
+Para manter a consistência visual e de uso, o projeto segue padrões estritos:
+
+1.  **Tema Escuro:** O app é otimizado para Dark Mode, com background `#121212` e cores de destaque primárias.
+2.  **Padrão de Botões (Diálogos e Confirmações):**
+    *   **Ação Positiva/Confirmação** (Ex: Save, Confirm, Delete, Add): Posicionada sempre à **DIREITA**.
+    *   **Ação Negativa/Cancelamento** (Ex: Cancel, Back): Posicionada sempre à **ESQUERDA**.
+    *   *Motivo:* Segue o padrão nativo do Android e Material Design 3.
+3.  **Feedback Visual:** Todas as operações longas (salvamento, conversão de vídeo) devem exibir indicadores de progresso (Loading) e feedback final (Toast ou Overlay de Sucesso).
+
+---
+
+## 🔄 Fluxos de Usuário e Navegação
+
+O aplicativo utiliza um grafo de navegação único (`NavGraph`) com as seguintes rotas principais:
+
+1.  **Home (`Screen.Home`)**: Ponto de entrada. Lista pacotes existentes.
+2.  **Seleção de Tipo (`Screen.StickerTypeSelection`)**: Escolha entre criar figurinha Estática ou Animada.
+3.  **Editores**:
+    *   `Screen.Editor`: Para imagens estáticas. Recebe URI da imagem.
+    *   `Screen.VideoEditor`: Para vídeos. Recebe URI do vídeo. Processa e converte para WebP.
+4.  **Salvar (`Screen.SaveSticker`)**: Tela de pré-visualização final, adição de emojis e seleção de pacote.
+    *   *Fluxo Otimizado:* Se nenhum pacote for pré-selecionado, navega para `PackageSelection` para salvar e finalizar em um passo.
+5.  **Seleção de Pacote (`Screen.PackageSelection`)**: Tela para escolher ou criar um pacote. Usada tanto para salvar stickers quanto para filtrar na Home.
+6.  **Detalhes do Pacote (`Screen.StickerPack`)**: Visualização do conteúdo do pacote e envio para o WhatsApp.
+7.  **Settings (`Screen.Settings`)**: Gerenciamento de backup e limpeza.
+8.  **Restore Preview (`Screen.RestorePreview`)**: Seleção de pacotes a serem restaurados de um backup.
+
+---
+
+## 💾 Persistência e Dados
+
+### Banco de Dados (Room)
+O aplicativo utiliza duas tabelas principais com relação 1:N.
+*   **StickerPackage**: `id`, `name`, `author`, `identifier` (UUID), `trayImageFile`, `animated` (bool).
+*   **Sticker**: `id`, `packageId` (FK), `imageFile` (nome do arquivo interno), `emojis`.
+
+### Armazenamento de Arquivos
+*   Todas as imagens e vídeos processados são salvos no armazenamento interno do aplicativo (`context.filesDir`).
+*   O `StickerContentProvider` expõe esses arquivos para o WhatsApp via `ParcelFileDescriptor` (modo `READ_ONLY`).
+*   *Limpeza:* O sistema de "Clean Orphan Files" remove arquivos físicos que não possuem registro correspondente no banco de dados.
+
+---
+
+## 🎬 Processamento de Mídia
+
+### Imagens Estáticas
+*   Utiliza `BitmapFactory` e Canvas nativo para composição.
+*   Recorte via `android-image-cropper`.
+*   Compressão final para WebP (Lossy, 512x512px, < 100KB) para conformidade com WhatsApp.
+*   **Undo/Redo:** Pilha de estados mantida em memória durante a edição.
+
+### Figurinhas Animadas
+*   **AndroidX Media3 Transformer** é o motor central (substituindo o antigo FFmpeg-Kit).
+*   Pipeline de conversão:
+    1.  Análise e Trim (Corte de tempo).
+    2.  Crop e Scale (512x512).
+    3.  Aplicação de efeitos (Texto).
+    4.  Conversão para WebP Animado.
+    5.  Controle de qualidade para garantir tamanho < 500KB (limite rígido do WhatsApp).
+
+---
+
+## 🌍 Integração com WhatsApp
+
+A integração segue estritamente a documentação oficial de stickers do WhatsApp.
+*   **ContentProvider:** `StickerContentProvider` responde a queries sobre metadados e serve os arquivos (streams).
+*   **Intent:** Dispara `com.whatsapp.intent.action.ENABLE_STICKER_PACK` com permissões de leitura de URI (`FLAG_GRANT_READ_URI_PERMISSION`).
+*   **Permissões:** O app concede permissões temporárias de leitura para `com.whatsapp` e `com.whatsapp.w4b` (Business) nas URIs específicas do provider.
+
+---
+
+*Documentação atualizada em Maio/2024.*

@@ -14,6 +14,9 @@
     <string name="loading">Carregando...</string>
     <string name="error">Erro</string>
     <string name="exit">Sair</string>
+    <string name="ok">OK</string>
+    <string name="undo">Desfazer</string>
+    <string name="redo">Refazer</string>
     
     <!-- Home Screen -->
     <string name="my_stickers">Minhas Figurinhas</string>
@@ -23,6 +26,30 @@
     <string name="stickers_by_author">%1$d figurinhas • %2$s</string>
     <string name="remaining_stickers_count">+%1$d</string>
     <string name="empty_pack">Pacote vazio</string>
+
+    <!-- Type Selection Screen -->
+    <string name="select_sticker_type">Selecione o Tipo de Figurinha</string>
+    <string name="static_sticker">Estática</string>
+    <string name="static_sticker_desc">Figurinha de Imagem</string>
+    <string name="animated_sticker">Animada</string>
+    <string name="animated_sticker_desc">Figurinha de Vídeo/GIF</string>
+    <string name="animated_badge">ANIM</string>
+
+    <!-- Package Selection Screen -->
+    <string name="select_package_title">Selecione o Pacote</string>
+    <string name="select_anim_pack_title">Selecione Pacote Animado</string>
+    <string name="select_static_pack_title">Selecione Pacote Estático</string>
+    <string name="package_full_label">CHEIO</string>
+    <string name="package_created_toast">Pacote criado!</string>
+    <string name="pack_full_toast">Este pacote está cheio (30/30)</string>
+    <string name="sticker_saved_success">Figurinha Salva!</string>
+
+    <!-- Create Package Dialog -->
+    <string name="create_package_title">Criar Novo Pacote</string>
+    <string name="pack_name_label">Nome do Pacote</string>
+    <string name="author_label">Autor</string>
+    <string name="animated_pack_label">Pacote Animado</string>
+    <string name="animated_pack_desc">Pacotes animados suportam apenas arquivos GIF e WebP.</string>
     
     <!-- Editor Screen -->
     <string name="exit_editor_title">Sair do Editor?</string>
@@ -33,12 +60,22 @@
     <string name="magnet_strength">Força do Ímã: %1$d</string>
     <string name="magnet">Ímã</string>
     <string name="add_text">Adicionar Texto</string>
+    <string name="remove_background">Remover Fundo</string>
     <string name="font_style">Estilo da Fonte</string>
     <string name="font_default">Padrão</string>
     <string name="font_serif">Serif</string>
     <string name="font_mono">Mono</string>
     <string name="font_cursive">Cursiva</string>
     <string name="font_bold">Negrito</string>
+
+    <!-- Video Editor -->
+    <string name="video_editor_trim_video">Aparar Vídeo</string>
+    <string name="video_editor_grid">Grade</string>
+    <string name="video_editor_cancel_button">Cancelar</string>
+    <string name="processing_video_progress">Processando vídeo... %1$d%%</string>
+    <string name="error_insufficient_storage">Espaço de armazenamento insuficiente.</string>
+    <string name="error_invalid_video_format">Formato de vídeo inválido ou parâmetros incorretos.</string>
+    <string name="error_failed_to_save_video">Falha ao salvar o vídeo. Tente novamente.</string>
     
     <!-- Save Sticker Screen -->
     <string name="save_sticker_title">Salvar Figurinha</string>
@@ -46,14 +83,16 @@
     <string name="tap_to_select">Toque para selecionar...</string>
     <string name="add_to_package">Adicionar ao Pacote</string>
     <string name="select_package_placeholder">Selecione um pacote...</string>
+    <string name="select_anim_pack_placeholder">Selecione um pacote animado...</string>
+    <string name="anim_sticker_needs_anim_pack">Figurinhas animadas devem ser salvas em um pacote animado.</string>
+    <string name="static_sticker_needs_static_pack">Figurinhas estáticas devem ser salvas em um pacote estático.</string>
     <string name="create_new_package_option">+ Criar Novo Pacote</string>
-    <string name="create_package_title">Criar Novo Pacote</string>
     <string name="package_name_required">Nome do Pacote *</string>
     <string name="author_required">Autor *</string>
-    <string name="email_optional">Email (Opcional)</string>
-    <string name="website_optional">Website (Opcional)</string>
-    <string name="privacy_policy_optional">Política de Privacidade (Opcional)</string>
-    <string name="license_optional">Licença (Opcional)</string>
+    <string name="email_optional">Email</string>
+    <string name="website_optional">Website</string>
+    <string name="privacy_policy_optional">Política de Privacidade</string>
+    <string name="license_optional">Licença</string>
     <string name="save_sticker_btn">Salvar Figurinha</string>
     <string name="duplicate_sticker_title">Figurinha Duplicada</string>
     <string name="duplicate_sticker_msg">Esta imagem já existe neste pacote. Deseja adicionar mesmo assim?</string>
@@ -80,6 +119,33 @@
     <string name="tap_plus_hint">Toque em + para criar uma figurinha</string>
     <string name="pack_not_found">Pacote não encontrado</string>
     <string name="whatsapp_not_found">WhatsApp não encontrado.</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Configurações e Backup</string>
+    <string name="data_management">Gerenciamento de Dados</string>
+    <string name="create_backup">Criar Backup</string>
+    <string name="create_backup_desc">Exportar todos os pacotes para um arquivo ZIP</string>
+    <string name="restore_from_backup">Restaurar de Backup</string>
+    <string name="restore_from_backup_desc">Importar figurinhas de um arquivo ZIP</string>
+    <string name="storage">Armazenamento</string>
+    <string name="clean_orphan_files">Limpar Arquivos Órfãos</string>
+    <string name="clean_orphan_files_desc">Remover imagens não utilizadas para liberar espaço</string>
+    <string name="cleanup_complete_title">Limpeza Concluída</string>
+    <string name="cleanup_complete_desc">%1$d arquivos não utilizados foram excluídos, liberando %2$s KB de espaço.</string>
+
+    <!-- Restore Preview Screen -->
+    <string name="restore_preview_title">Selecionar Pacotes para Restaurar</string>
+    <string name="restore_success_toast">Restauração bem-sucedida!</string>
+    <string name="restore_error_toast">Erro: %1$s</string>
+    <string name="restore_selected_button">Restaurar Selecionados (%1$d)</string>
+    <string name="package_exists_label">Já existe</string>
+
+    <!-- Permissions -->
+    <string name="permission_required_title">Permissão Necessária</string>
+    <string name="permission_required_rationale">Este aplicativo precisa de acesso à sua mídia (imagens/vídeos) para criar figurinhas. Por favor, conceda a permissão.</string>
+    <string name="permission_permanently_denied_message">O acesso à mídia foi permanentemente negado. Por favor, ative-o nas Configurações do Aplicativo para continuar.</string>
+    <string name="open_settings">Abrir Configurações</string>
+    <string name="not_now">Agora Não</string>
     
     <!-- Toasts / VM messages -->
     <string name="limit_packs_error">Você atingiu o limite de 10 Pacotes de Figurinhas.</string>
@@ -102,7 +168,7 @@
     <string name="optimizing_sticker">Otimizando figurinha...</string>
     <string name="generating_tray">Gerando ícone...</string>
     
-    <!-- Accessibility -->
+    <!-- Accessibility & Content Descriptions -->
     <string name="settings">Configurações</string>
     <string name="create_sticker">Criar Figurinha</string>
     <string name="send_to_whatsapp_desc">Enviar para o WhatsApp</string>
@@ -113,4 +179,6 @@
     <string name="delete_selected">Excluir Selecionados</string>
     <string name="select">Selecionar</string>
     <string name="selected">Selecionado</string>
+    <string name="sticker_preview">Pré-visualização</string>
+    <string name="close">Fechar</string>
 </resources>

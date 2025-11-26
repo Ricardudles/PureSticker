@@ -1,5 +1,6 @@
 pluginManagement {
     repositories {
+        gradlePluginPortal()
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -8,7 +9,6 @@ pluginManagement {
             }
         }
         mavenCentral()
-        gradlePluginPortal()
     }
 }
 dependencyResolutionManagement {
@@ -16,7 +16,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://jitpack.io") } // Required for some libraries if needed, though vanniktech is on MavenCentral usually
+        maven { url = uri("https://jitpack.io") }
+        maven { url = uri("https://jcenter.bintray.com/") }
     }
 }
 

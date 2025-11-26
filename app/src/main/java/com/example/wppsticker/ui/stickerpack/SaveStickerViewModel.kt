@@ -3,7 +3,9 @@ package com.example.wppsticker.ui.stickerpack
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import android.util.Patterns
 import androidx.lifecycle.SavedStateHandle
@@ -56,8 +58,14 @@ class SaveStickerViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    val stickerUri: Uri = Uri.parse(checkNotNull(savedStateHandle["stickerUri"]))
+    // If stickerUri is passed as arg, use it. If not (e.g. when reused in PackageSelectionScreen), it might be null or passed differently.
+    val stickerUri: Uri = run {
+         val uriString = savedStateHandle.get<String>("stickerUri")
+         if (uriString != null) Uri.parse(uriString) else Uri.EMPTY
+    }
+    
     val packageIdArg: Int = savedStateHandle.get<Int>("packageId") ?: -1
+    val isAnimatedArg: Boolean = savedStateHandle.get<Boolean>("isAnimated") ?: false
 
     private val _stickerPackages = MutableStateFlow<List<StickerPackage>>(emptyList())
     val stickerPackages = _stickerPackages.asStateFlow()
@@ -65,7 +73,6 @@ class SaveStickerViewModel @Inject constructor(
     private val _preSelectedPackage = MutableStateFlow<StickerPackage?>(null)
     val preSelectedPackage = _preSelectedPackage.asStateFlow()
 
-    // Changed from isBusy to loadingMessage for better feedback
     private val _loadingMessage = MutableStateFlow<String?>(null)
     val loadingMessage = _loadingMessage.asStateFlow()
 
@@ -95,6 +102,7 @@ class SaveStickerViewModel @Inject constructor(
         website: String,
         privacyPolicy: String,
         licenseAgreement: String,
+        isAnimated: Boolean,
         onPackageCreated: (StickerPackage) -> Unit
     ) = viewModelScope.launch {
         
@@ -144,7 +152,8 @@ class SaveStickerViewModel @Inject constructor(
             publisherEmail = email,
             publisherWebsite = website,
             privacyPolicyWebsite = privacyPolicy,
-            licenseAgreementWebsite = licenseAgreement
+            licenseAgreementWebsite = licenseAgreement,
+            animated = isAnimated // Use renamed property
         )
         
         val newId = createStickerPackageUseCase(newPackage)
@@ -168,19 +177,30 @@ class SaveStickerViewModel @Inject constructor(
             _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.emoji_required_error)))
             return@launch
         }
-        val emojiList = cleanedEmojis.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        // Decode emojis if they are URL encoded (Phase 3.4 fix)
+        val decodedEmojis = try {
+            java.net.URLDecoder.decode(cleanedEmojis, java.nio.charset.StandardCharsets.UTF_8.toString())
+        } catch (e: Exception) {
+            cleanedEmojis
+        }
+        
+        val emojiList = decodedEmojis.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         
         if (emojiList.size > 3) {
             _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.max_emojis_error)))
             return@launch
         }
 
-        Log.d(TAG, "SaveStickerVM: Saving sticker to package '${stickerPackage.name}'")
+        // Log.d(TAG, "SaveStickerVM: Saving sticker to package '${stickerPackage.name}' (Animated: ${stickerPackage.animated})")
         _loadingMessage.value = context.getString(R.string.analyzing_image)
 
         withContext(Dispatchers.IO) {
             try {
                 val sourceFile = File(stickerUri.path!!)
+                if (!sourceFile.exists()) {
+                     _events.emit(SaveStickerEvent.ShowToast("Source sticker file not found"))
+                     return@withContext
+                }
                 val fileHash = calculateHash(sourceFile)
 
                 // --- DUPLICATE CHECK ---
@@ -189,14 +209,20 @@ class SaveStickerViewModel @Inject constructor(
                     if (isDuplicate) {
                         _events.emit(SaveStickerEvent.ShowDuplicateDialog {
                             // User confirmed, run the save again with force = true
-                            saveSticker(stickerPackage, emojis, force = true)
+                            saveSticker(stickerPackage, decodedEmojis, force = true)
                         })
-                        _loadingMessage.value = null // Stop loading while dialog is shown
+                        _loadingMessage.value = null 
                         return@withContext
                     }
                 }
                 
-                proceedWithSave(stickerPackage, emojiList, sourceFile, fileHash)
+                // Explicit cast to avoid ambiguity if any
+                val pkg = stickerPackage as com.example.wppsticker.data.local.StickerPackage
+                if (pkg.animated) { // Use renamed property
+                    saveAnimatedSticker(stickerPackage, emojiList, sourceFile, fileHash)
+                } else {
+                    saveStaticSticker(stickerPackage, emojiList, sourceFile, fileHash)
+                }
 
             } catch(e: Exception) {
                 Log.e(TAG, "Error saving sticker", e)
@@ -206,8 +232,49 @@ class SaveStickerViewModel @Inject constructor(
             }
         }
     }
+
+    private suspend fun saveAnimatedSticker(stickerPackage: StickerPackage, emojis: List<String>, sourceFile: File, fileHash: String) {
+        _loadingMessage.value = context.getString(R.string.processing_sticker)
+        
+        // 1. Size Check (< 500KB)
+        val sizeKb = sourceFile.length() / 1024
+        if (sizeKb > 500) {
+            _events.emit(SaveStickerEvent.ShowToast("Animated sticker is too large (${sizeKb}KB). Max 500KB."))
+            return
+        }
+
+        // 2. Copy File
+        val finalFileName = "${UUID.randomUUID()}.webp"
+        val destinationFile = File(context.filesDir, finalFileName)
+        sourceFile.copyTo(destinationFile, overwrite = true)
+        
+        // 3. Add to DB
+        val sticker = Sticker(
+            packageId = stickerPackage.id,
+            imageFile = finalFileName,
+            imageFileHash = fileHash,
+            emojis = emojis,
+            width = 512,
+            height = 512,
+            sizeInKb = sizeKb
+        )
+        addStickerUseCase(sticker)
+
+        // 4. Tray Icon & Version Update
+        val bitmap = decodeFirstFrame(sourceFile)
+        if (bitmap == null) {
+            _events.emit(SaveStickerEvent.ShowToast("Could not decode animated sticker to create tray icon."))
+            // Clean up created sticker file if tray icon fails
+            destinationFile.delete()
+            return
+        }
+        
+        updateTrayIconAndVersion(stickerPackage, bitmap)
+        
+        _saveFinished.value = true
+    }
     
-    private suspend fun proceedWithSave(stickerPackage: StickerPackage, emojis: List<String>, sourceFile: File, fileHash: String) {
+    private suspend fun saveStaticSticker(stickerPackage: StickerPackage, emojis: List<String>, sourceFile: File, fileHash: String) {
         _loadingMessage.value = context.getString(R.string.processing_sticker)
         val sourceBitmap = BitmapFactory.decodeFile(sourceFile.absolutePath)
         
@@ -234,11 +301,6 @@ class SaveStickerViewModel @Inject constructor(
             return
         }
 
-        Log.d(TAG, "SaveStickerVM: Sticker saved: ${stickerFile.name} Size: ${stickerFile.length() / 1024}KB")
-        
-        // Delete temp file from editor if needed
-        // sourceFile.delete() // Let editor handle its own cache, or delete here if passed by uri
-
         val sticker = Sticker(
             packageId = stickerPackage.id, 
             imageFile = stickerFile.name, 
@@ -250,20 +312,25 @@ class SaveStickerViewModel @Inject constructor(
         )
         addStickerUseCase(sticker)
 
+        updateTrayIconAndVersion(stickerPackage, sourceBitmap)
+        _saveFinished.value = true
+    }
+    
+    private suspend fun updateTrayIconAndVersion(stickerPackage: StickerPackage, sourceBitmap: Bitmap?) {
         // Increment version
         val currentVersion = stickerPackage.imageDataVersion.toIntOrNull() ?: 1
         val newVersion = (currentVersion + 1).toString()
         var updatedPackage = stickerPackage.copy(imageDataVersion = newVersion)
 
-        // 2. Process Tray Icon if needed (96x96, < 50KB)
-        if (updatedPackage.trayImageFile.isEmpty()) {
+        // Process Tray Icon if needed (96x96, < 50KB)
+        if (updatedPackage.trayImageFile.isEmpty() && sourceBitmap != null) {
             Log.d(TAG, "SaveStickerVM: Setting new tray icon.")
             _loadingMessage.value = context.getString(R.string.generating_tray)
             val trayFileName = "${UUID.randomUUID()}_tray.webp"
             val trayFileTarget = File(context.filesDir, trayFileName)
 
             val trayFile = saveImageWithConstraints(
-                bitmap = sourceBitmap, // Use original bitmap to resize down directly
+                bitmap = sourceBitmap, 
                 targetFile = trayFileTarget,
                 targetWidth = 96,
                 targetHeight = 96,
@@ -278,13 +345,26 @@ class SaveStickerViewModel @Inject constructor(
         }
         
         updateStickerPackageUseCase(updatedPackage)
-        _saveFinished.value = true
     }
 
-    /**
-     * Resizes and compresses a bitmap to meet strict WhatsApp constraints.
-     * Returns the file if successful, null otherwise.
-     */
+    private fun decodeFirstFrame(file: File): Bitmap? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val source = ImageDecoder.createSource(file)
+                ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                    // This ensures we only decode the first frame, which is more efficient.
+                    // decoder.isAnimated = false // Property removed/unavailable
+                }
+            } else {
+                // Fallback for older APIs, might not be as reliable for all animated formats.
+                BitmapFactory.decodeFile(file.absolutePath)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decode first frame", e)
+            null
+        }
+    }
+    
     private fun saveImageWithConstraints(
         bitmap: Bitmap, 
         targetFile: File, 
@@ -293,17 +373,14 @@ class SaveStickerViewModel @Inject constructor(
         maxSizeKb: Int
     ): File? {
         try {
-            // 1. Resize exact dimensions
             val resizedBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
-            
-            // 2. Compress loop (WebP)
             var quality = 90
             var stream: ByteArrayOutputStream
             var byteArray: ByteArray
 
             do {
                 stream = ByteArrayOutputStream()
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     resizedBitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, stream)
                 } else {
                     @Suppress("DEPRECATION")
@@ -312,7 +389,6 @@ class SaveStickerViewModel @Inject constructor(
                 
                 byteArray = stream.toByteArray()
                 val sizeKb = byteArray.size / 1024
-                Log.d(TAG, "Compression check: ${targetWidth}x${targetHeight} Q:$quality Size:${sizeKb}KB (Max: $maxSizeKb)")
 
                 if (sizeKb <= maxSizeKb) {
                     FileOutputStream(targetFile).use { out ->
@@ -320,11 +396,10 @@ class SaveStickerViewModel @Inject constructor(
                     }
                     return targetFile
                 }
-
                 quality -= 10
             } while (quality > 0)
 
-            return null // Could not compress enough
+            return null
         } catch (e: Exception) {
             Log.e(TAG, "Error in saveImageWithConstraints", e)
             return null

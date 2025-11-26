@@ -64,9 +64,31 @@ class HomeViewModel @Inject constructor(
         deleteStickerPackageUseCase(packageId)
     }
 
-    fun createStickerPackage(name: String, onPackageCreated: (Long) -> Unit) = viewModelScope.launch {
-        val trimmedName = if (name.length > 30) name.substring(0, 30) else name
-        val newPackage = StickerPackage(name = trimmedName, author = "Me", trayImageFile = "")
+    // Updated to support all fields
+    fun createStickerPackage(
+        name: String, 
+        author: String, 
+        isAnimated: Boolean,
+        email: String = "",
+        website: String = "",
+        privacyPolicy: String = "",
+        license: String = "",
+        onPackageCreated: (Long) -> Unit
+    ) = viewModelScope.launch {
+        // Use 128 limit to match other parts of the app
+        val trimmedName = if (name.length > 128) name.substring(0, 128) else name
+        val trimmedAuthor = if (author.length > 128) author.substring(0, 128) else author
+        
+        val newPackage = StickerPackage(
+            name = trimmedName, 
+            author = trimmedAuthor, 
+            trayImageFile = "",
+            animated = isAnimated,
+            publisherEmail = email,
+            publisherWebsite = website,
+            privacyPolicyWebsite = privacyPolicy,
+            licenseAgreementWebsite = license
+        )
         val newPackageId = createStickerPackageUseCase(newPackage)
         onPackageCreated(newPackageId)
     }

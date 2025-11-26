@@ -7,8 +7,10 @@ import com.example.wppsticker.domain.repository.BackupRepository
 import com.example.wppsticker.domain.usecase.CleanOrphanFilesUseCase
 import com.example.wppsticker.domain.usecase.CleanupResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,12 +23,15 @@ class SettingsViewModel @Inject constructor(
     private val _cleanupResult = MutableStateFlow<CleanupResult?>(null)
     val cleanupResult = _cleanupResult.asStateFlow()
 
+    private val _uiEvent = Channel<UiEvent>()
+    val uiEvent = _uiEvent.receiveAsFlow()
+
     fun exportBackup(uri: Uri) = viewModelScope.launch {
         try {
             backupRepository.exportBackup(uri)
-            // TODO: Add UI event for success message
+            _uiEvent.send(UiEvent.ShowToast("Backup created successfully!"))
         } catch (e: Exception) {
-            // TODO: Add UI event for error message
+            _uiEvent.send(UiEvent.ShowToast("Error creating backup: ${e.message}"))
         }
     }
 
@@ -36,5 +41,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onCleanupResultDialogDismissed() {
         _cleanupResult.value = null
+    }
+
+    sealed class UiEvent {
+        data class ShowToast(val message: String) : UiEvent()
     }
 }

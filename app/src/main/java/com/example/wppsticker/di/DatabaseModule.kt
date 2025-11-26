@@ -22,7 +22,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "wppsticker.db"
-        ).fallbackToDestructiveMigration().build()
+        )
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     @Provides

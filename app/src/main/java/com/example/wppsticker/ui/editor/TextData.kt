@@ -8,11 +8,11 @@ import java.util.UUID
 data class TextData(
     val id: String = UUID.randomUUID().toString(),
     val text: String,
-    var offset: Offset = Offset.Zero,
-    var scale: Float = 1f,
-    var rotation: Float = 0f,
-    var color: Color = Color.White,
-    var fontIndex: Int = 0 // 0: Default, 1: Serif, 2: Mono, 3: Cursive, etc.
+    val offset: Offset = Offset.Zero,
+    val scale: Float = 1f,
+    val rotation: Float = 0f,
+    val color: Color = Color.White,
+    val fontIndex: Int = 0 // 0: Default, 1: Serif, 2: Mono, 3: Cursive, etc.
 ) {
     fun getBoundingBox(fontSize: Float): Rect {
         val estimatedWidth = text.length * fontSize * 0.6f

@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.example.wppsticker.nav.Screen
+import com.example.wppsticker.util.BackgroundRemover
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +27,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.Stack
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.abs
@@ -65,6 +67,16 @@ class EditorViewModel @Inject constructor(
     private val _snapStrength = MutableStateFlow(3) // Default Level 3
     val snapStrength: StateFlow<Int> = _snapStrength.asStateFlow()
 
+    // Undo/Redo Stacks
+    private val undoStack = Stack<EditorState>()
+    private val redoStack = Stack<EditorState>()
+    
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
+    
+    private val _canRedo = MutableStateFlow(false)
+    val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
+
     val packageIdArg: Int = savedStateHandle.get<Int>("packageId") ?: -1
 
     // Raw state to prevent "stuck" snap behavior
@@ -77,12 +89,80 @@ class EditorViewModel @Inject constructor(
     private var imageHeight = 0
 
     init {
-        val uriString = savedStateHandle.get<String>("imageUri")
+        val uriString = savedStateHandle.get<String>("stickerUri")
         if (uriString != null) {
             val uri = Uri.parse(uriString)
             _imageUri.value = uri
             loadImageDimensions(uri)
         }
+    }
+
+    // --- Undo/Redo Logic ---
+    
+    private fun pushToUndoStack() {
+        val currentState = EditorState(
+            imageState = _imageState.value,
+            texts = _texts.value,
+            imageUri = _imageUri.value // Save current URI
+        )
+        undoStack.push(currentState)
+        redoStack.clear()
+        updateUndoRedoState()
+    }
+    
+    private fun updateUndoRedoState() {
+        _canUndo.value = undoStack.isNotEmpty()
+        _canRedo.value = redoStack.isNotEmpty()
+    }
+    
+    fun undo() {
+        if (undoStack.isNotEmpty()) {
+            // Save current state to redo stack first
+            val currentState = EditorState(
+                imageState = _imageState.value,
+                texts = _texts.value,
+                imageUri = _imageUri.value
+            )
+            redoStack.push(currentState)
+            
+            // Restore from undo stack
+            val previousState = undoStack.pop()
+            restoreState(previousState)
+            updateUndoRedoState()
+        }
+    }
+    
+    fun redo() {
+        if (redoStack.isNotEmpty()) {
+            // Save current state to undo stack
+            val currentState = EditorState(
+                imageState = _imageState.value,
+                texts = _texts.value,
+                imageUri = _imageUri.value
+            )
+            undoStack.push(currentState)
+            
+            // Restore from redo stack
+            val nextState = redoStack.pop()
+            restoreState(nextState)
+            updateUndoRedoState()
+        }
+    }
+    
+    private fun restoreState(state: EditorState) {
+        // Restore URI if it changed (e.g. background removal undo)
+        if (state.imageUri != null && state.imageUri != _imageUri.value) {
+            _imageUri.value = state.imageUri
+            loadImageDimensions(state.imageUri)
+        }
+
+        _imageState.value = state.imageState
+        _texts.value = state.texts
+        
+        // Also restore raw values to prevent snap glitches when modifying again
+        rawOffset = state.imageState.offset
+        rawScale = state.imageState.scale
+        rawRotation = state.imageState.rotation
     }
     
     fun toggleSnap(enabled: Boolean) {
@@ -94,8 +174,14 @@ class EditorViewModel @Inject constructor(
     }
 
     fun onImageCropped(uri: Uri) {
+        // Pushes state BEFORE the change
+        pushToUndoStack()
+        
         _imageUri.value = uri
-        // Reset state on new image
+        // Reset state on new image (or keep? usually keep if it's just bg removal)
+        // If it's a crop, usually we reset or adjust. 
+        // For BG removal, we probably want to keep scale/rotation if possible, 
+        // but reset helps avoid visual glitches if dimensions changed drastically.
         _imageState.value = ImageState()
         rawOffset = Offset.Zero
         rawScale = 1f
@@ -116,6 +202,7 @@ class EditorViewModel @Inject constructor(
     }
 
     fun addText(text: String) {
+        pushToUndoStack()
         val newText = TextData(text = text)
         _texts.update { it + newText }
         _selectedTextId.value = newText.id
@@ -126,6 +213,7 @@ class EditorViewModel @Inject constructor(
     fun showTextDialog(show: Boolean) { _showTextDialog.value = show }
 
     fun updateSelectedTextColor(color: androidx.compose.ui.graphics.Color) {
+        pushToUndoStack()
         _texts.update { texts ->
             texts.map {
                 if (it.id == _selectedTextId.value) {
@@ -136,6 +224,7 @@ class EditorViewModel @Inject constructor(
     }
     
     fun updateSelectedTextFont(fontIndex: Int) {
+        pushToUndoStack()
         _texts.update { texts ->
             texts.map {
                 if (it.id == _selectedTextId.value) {
@@ -145,7 +234,22 @@ class EditorViewModel @Inject constructor(
         }
     }
 
+    // Helper to detect start of a gesture for undo purposes
+    private var isGestureInProgress = false
+
+    fun onGestureStart() {
+        if (!isGestureInProgress) {
+            pushToUndoStack()
+            isGestureInProgress = true
+        }
+    }
+
+    fun onGestureEnd() {
+        isGestureInProgress = false
+    }
+
     fun updateSelectedText(offset: Offset? = null, scale: Float? = null, rotation: Float? = null) {
+        // We rely on onGestureStart to push state before this stream of updates
         _texts.update { texts ->
             texts.map {
                 if (it.id == _selectedTextId.value) {
@@ -174,6 +278,8 @@ class EditorViewModel @Inject constructor(
 
     // Updates the background image transformation.
     fun updateImageState(offset: Offset? = null, scale: Float? = null, rotation: Float? = null) {
+        // We rely on onGestureStart to push state before this stream of updates
+        
         // 1. Accumulate Raw Values (Unsnapped)
         rawOffset += (offset ?: Offset.Zero)
         if (scale != null) rawScale *= scale
@@ -262,6 +368,37 @@ class EditorViewModel @Inject constructor(
         }
     }
     
+    fun removeBackground() = viewModelScope.launch {
+        // REMOVED pushToUndoStack() here because onImageCropped does it
+        val uri = imageUri.value ?: return@launch
+        _isBusy.value = true
+        try {
+             val request = ImageRequest.Builder(context)
+                 .data(uri)
+                 .allowHardware(false)
+                 .build()
+             val result = context.imageLoader.execute(request)
+             val bitmap = result.drawable?.toBitmap()
+             
+             if (bitmap != null) {
+                 val processed = BackgroundRemover.removeBackground(bitmap)
+                 
+                 // Save to temp file (PNG to preserve alpha)
+                 val file = File(context.cacheDir, "bg_removed_${UUID.randomUUID()}.png")
+                 FileOutputStream(file).use { out ->
+                     processed.compress(Bitmap.CompressFormat.PNG, 100, out)
+                 }
+                 
+                 // Update State
+                 onImageCropped(Uri.fromFile(file))
+             }
+        } catch (e: Exception) {
+             e.printStackTrace()
+        } finally {
+             _isBusy.value = false
+        }
+    }
+    
     fun onNavigatedToSave() {
         _navigateToSave.value = null
     }
@@ -326,10 +463,16 @@ class EditorViewModel @Inject constructor(
         
         val file = saveBitmapToTempFile(finalBitmap)
         val encodedUri = URLEncoder.encode(Uri.fromFile(file).toString(), StandardCharsets.UTF_8.toString())
+        
+        // Here we set packageId to -1 if not provided or not relevant for initial save
+        // However, since the user asked for pre-selection logic, we should pass packageIdArg if available.
         var route = "${Screen.SaveSticker.name}/$encodedUri"
         if (packageIdArg != -1) {
             route += "?packageId=$packageIdArg"
+        } else {
+            route += "?packageId=-1"
         }
+        
         _navigateToSave.value = route
         _isBusy.value = false
     }

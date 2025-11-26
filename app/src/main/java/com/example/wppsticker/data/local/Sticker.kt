@@ -2,6 +2,7 @@ package com.example.wppsticker.data.local
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
@@ -13,7 +14,8 @@ import androidx.room.PrimaryKey
             childColumns = ["packageId"],
             onDelete = ForeignKey.CASCADE
         )
-    ]
+    ],
+    indices = [Index(value = ["packageId"])]
 )
 data class Sticker(
     @PrimaryKey(autoGenerate = true)

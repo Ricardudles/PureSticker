@@ -2,12 +2,16 @@ package com.example.wppsticker.ui.stickerpack
 
 import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import android.util.Patterns
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,31 +34,35 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -69,22 +77,28 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.wppsticker.R
 import com.example.wppsticker.data.local.Sticker
 import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.util.UiState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import android.graphics.ImageDecoder
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -95,50 +109,80 @@ fun PackageScreen(
     val stickerPackageState by viewModel.stickerPackage.collectAsState()
     val sendIntent by viewModel.sendIntent.collectAsState()
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
     
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteStickerDialog by remember { mutableStateOf<Sticker?>(null) }
-    
+    var showPreviewDialog by remember { mutableStateOf<Sticker?>(null) }
+
     // Selection State
     var selectedStickers by remember { mutableStateOf(setOf<Int>()) }
     val isSelectionMode = selectedStickers.isNotEmpty()
     var showDeleteSelectionDialog by remember { mutableStateOf(false) }
 
-    val currentPackageId = (stickerPackageState as? UiState.Success)?.data?.stickerPackage?.id
+    val currentPackage = (stickerPackageState as? UiState.Success)?.data?.stickerPackage
+    val currentPackageId = currentPackage?.id
+    val isAnimated = currentPackage?.animated == true
+    
+    val videoEditorRouteName = Screen.VideoEditor.name
+    val editorRouteName = Screen.Editor.name
+
+    var pickedUri by remember { mutableStateOf<Uri?>(null) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
-            uri?.let {
-                val encodedUri = URLEncoder.encode(it.toString(), StandardCharsets.UTF_8.toString())
-                val route = if (currentPackageId != null) {
-                    "${Screen.Editor.name}/$encodedUri?packageId=$currentPackageId"
-                } else {
-                    "${Screen.Editor.name}/$encodedUri"
-                }
-                navController.navigate(route)
-            }
+            pickedUri = uri
         }
     )
 
-    val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        Manifest.permission.READ_MEDIA_IMAGES
+    if (pickedUri != null) {
+        val uriToProcess = pickedUri!!
+        LaunchedEffect(uriToProcess) {
+            val encodedUri = safeEncodeUri(uriToProcess.toString())
+            val route = if (isAnimated && currentPackageId != null) {
+                "$videoEditorRouteName/$encodedUri?packageId=$currentPackageId"
+            } else {
+                if (currentPackageId != null) {
+                    "$editorRouteName/$encodedUri?packageId=$currentPackageId"
+                } else {
+                    "$editorRouteName/$encodedUri"
+                }
+            }
+            navController.navigate(route)
+            pickedUri = null
+        }
+    }
+
+    var showPermissionRationaleDialog by remember { mutableStateOf(false) }
+    var showPermissionSettingsDialog by remember { mutableStateOf(false) }
+
+    val permissionString = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (isAnimated) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_MEDIA_IMAGES
     } else {
         Manifest.permission.READ_EXTERNAL_STORAGE
     }
 
-    val permissionState = rememberPermissionState(permission) { isGranted ->
+    var onPermissionResult: (Boolean) -> Unit = {}
+    val permissionState = rememberPermissionState(permissionString) { isGranted ->
+        onPermissionResult(isGranted)
+    }
+
+    onPermissionResult = { isGranted ->
         if (isGranted) {
-            imagePickerLauncher.launch("image/*")
+            val mimeType = if (isAnimated) "video/*" else "image/*"
+            imagePickerLauncher.launch(mimeType)
+        } else {
+            if (!permissionState.status.shouldShowRationale) {
+                showPermissionSettingsDialog = true
+            }
         }
     }
     
-    // Handle Back Press to clear selection
     BackHandler(enabled = isSelectionMode) {
         selectedStickers = emptySet()
     }
 
-    // Effects for Toast and Intent
     LaunchedEffect(key1 = true) {
         viewModel.uiEvents.collect { event ->
             Toast.makeText(context, event, Toast.LENGTH_LONG).show()
@@ -151,12 +195,13 @@ fun PackageScreen(
         viewModel.onSendIntentLaunched()
     }
 
+    val whatsappNotFoundMessage = stringResource(R.string.whatsapp_not_found)
     LaunchedEffect(sendIntent) {
         sendIntent?.let { intent ->
             try {
                 whatsappLauncher.launch(intent)
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(context, "WhatsApp not found.", Toast.LENGTH_LONG).show()
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(context, whatsappNotFoundMessage, Toast.LENGTH_LONG).show()
                 viewModel.onSendIntentLaunched()
             }
         }
@@ -164,80 +209,169 @@ fun PackageScreen(
 
     // Edit Dialog
     if (showEditDialog && stickerPackageState is UiState.Success) {
-        val currentPackage = (stickerPackageState as UiState.Success).data.stickerPackage
+        val pack = (stickerPackageState as UiState.Success).data.stickerPackage
         
-        var editName by remember { mutableStateOf(currentPackage.name) }
-        var editAuthor by remember { mutableStateOf(currentPackage.author) }
-        var editEmail by remember { mutableStateOf(currentPackage.publisherEmail) }
-        var editWebsite by remember { mutableStateOf(currentPackage.publisherWebsite) }
-        var editPrivacyPolicy by remember { mutableStateOf(currentPackage.privacyPolicyWebsite) }
-        var editLicense by remember { mutableStateOf(currentPackage.licenseAgreementWebsite) }
+        var editName by remember { mutableStateOf(pack.name) }
+        var editAuthor by remember { mutableStateOf(pack.author) }
+        var editEmail by remember { mutableStateOf(pack.publisherEmail) }
+        var editWebsite by remember { mutableStateOf(pack.publisherWebsite) }
+        var editPrivacyPolicy by remember { mutableStateOf(pack.privacyPolicyWebsite) }
+        var editLicense by remember { mutableStateOf(pack.licenseAgreementWebsite) }
+
+        var showAdvanced by remember { mutableStateOf(false) }
+        
+        var nameError by remember { mutableStateOf(false) }
+        var authorError by remember { mutableStateOf(false) }
+        var emailError by remember { mutableStateOf(false) }
+        var websiteError by remember { mutableStateOf(false) }
+        var privacyError by remember { mutableStateOf(false) }
+
+        fun validate(): Boolean {
+            nameError = editName.isBlank()
+            authorError = editAuthor.isBlank()
+            
+            emailError = editEmail.isNotBlank() && !Patterns.EMAIL_ADDRESS.matcher(editEmail).matches()
+            websiteError = editWebsite.isNotBlank() && !Patterns.WEB_URL.matcher(editWebsite).matches()
+            privacyError = editPrivacyPolicy.isNotBlank() && !Patterns.WEB_URL.matcher(editPrivacyPolicy).matches()
+            
+            return !nameError && !authorError && !emailError && !websiteError && !privacyError
+        }
 
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
             title = { Text(stringResource(R.string.edit_details)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    TextField(
+                    OutlinedTextField(
                         value = editName,
-                        onValueChange = { editName = it },
+                        onValueChange = { 
+                            editName = it
+                            nameError = false
+                        },
                         label = { Text(stringResource(R.string.package_name)) },
                         singleLine = true,
+                        isError = nameError,
+                        supportingText = if (nameError) { { Text(stringResource(R.string.pkg_name_required_error)) } } else null,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
+                    OutlinedTextField(
                         value = editAuthor,
-                        onValueChange = { editAuthor = it },
+                        onValueChange = { 
+                            editAuthor = it
+                            authorError = false
+                        },
                         label = { Text(stringResource(R.string.author)) },
                         singleLine = true,
+                        isError = authorError,
+                        supportingText = if (authorError) { { Text(stringResource(R.string.author_required_error)) } } else null,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = editEmail,
-                        onValueChange = { editEmail = it },
-                        label = { Text(stringResource(R.string.email)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = editWebsite,
-                        onValueChange = { editWebsite = it },
-                        label = { Text(stringResource(R.string.website)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = editPrivacyPolicy,
-                        onValueChange = { editPrivacyPolicy = it },
-                        label = { Text(stringResource(R.string.privacy_policy_website)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextField(
-                        value = editLicense,
-                        onValueChange = { editLicense = it },
-                        label = { Text(stringResource(R.string.license_website)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    
+                    Divider(modifier = Modifier.padding(vertical = 16.dp))
+
+                    // Advanced Options Toggle
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showAdvanced = !showAdvanced }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Advanced Options (Optional)", color = MaterialTheme.colorScheme.primary)
+                        Icon(
+                            if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    
+                    AnimatedVisibility(visible = showAdvanced) {
+                        Column {
+                            OutlinedTextField(
+                                value = editEmail,
+                                onValueChange = { 
+                                    editEmail = it 
+                                    emailError = false
+                                },
+                                label = { Text(stringResource(R.string.email)) },
+                                singleLine = true,
+                                isError = emailError,
+                                supportingText = if (emailError) { { Text("Invalid email format") } } else null,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editWebsite,
+                                onValueChange = { 
+                                    editWebsite = it 
+                                    websiteError = false
+                                },
+                                label = { Text(stringResource(R.string.website)) },
+                                singleLine = true,
+                                isError = websiteError,
+                                supportingText = if (websiteError) { { Text(stringResource(R.string.invalid_url_error)) } } else null,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editPrivacyPolicy,
+                                onValueChange = { 
+                                    editPrivacyPolicy = it 
+                                    privacyError = false
+                                },
+                                label = { Text(stringResource(R.string.privacy_policy_website)) },
+                                singleLine = true,
+                                isError = privacyError,
+                                supportingText = if (privacyError) { { Text(stringResource(R.string.invalid_url_error)) } } else null,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = editLicense,
+                                onValueChange = { editLicense = it },
+                                label = { Text(stringResource(R.string.license_website)) },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    focusManager.clearFocus()
+                                    if (validate()) {
+                                        viewModel.updatePackageDetails(
+                                            name = editName,
+                                            author = editAuthor,
+                                            email = editEmail,
+                                            website = editWebsite,
+                                            privacyPolicy = editPrivacyPolicy,
+                                            license = editLicense
+                                        )
+                                        showEditDialog = false
+                                    }
+                                }),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
                 }
             },
             confirmButton = {
                 Button(onClick = {
-                    viewModel.updatePackageDetails(
-                        name = editName,
-                        author = editAuthor,
-                        email = editEmail,
-                        website = editWebsite,
-                        privacyPolicy = editPrivacyPolicy,
-                        license = editLicense
-                    )
-                    showEditDialog = false
+                    if (validate()) {
+                        viewModel.updatePackageDetails(
+                            name = editName,
+                            author = editAuthor,
+                            email = editEmail,
+                            website = editWebsite,
+                            privacyPolicy = editPrivacyPolicy,
+                            license = editLicense
+                        )
+                        showEditDialog = false
+                    }
                 }) { Text(stringResource(R.string.save)) }
             },
             dismissButton = {
@@ -246,7 +380,51 @@ fun PackageScreen(
         )
     }
 
-    // Single Delete Confirmation Dialog
+    if (showPermissionRationaleDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionRationaleDialog = false },
+            title = { Text(stringResource(R.string.permission_required_title)) },
+            text = { Text(stringResource(R.string.permission_required_rationale)) },
+            confirmButton = {
+                Button(onClick = {
+                    showPermissionRationaleDialog = false
+                    permissionState.launchPermissionRequest()
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionRationaleDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showPermissionSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionSettingsDialog = false },
+            title = { Text(stringResource(R.string.permission_required_title)) },
+            text = { Text(stringResource(R.string.permission_permanently_denied_message)) },
+            confirmButton = {
+                Button(onClick = {
+                    showPermissionSettingsDialog = false
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                    }
+                    context.startActivity(intent)
+                }) {
+                    Text(stringResource(R.string.open_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionSettingsDialog = false }) {
+                    Text(stringResource(R.string.not_now))
+                }
+            }
+        )
+    }
+
     if (showDeleteStickerDialog != null) {
         AlertDialog(
             onDismissRequest = { showDeleteStickerDialog = null },
@@ -271,7 +449,6 @@ fun PackageScreen(
         )
     }
     
-    // Batch Delete Confirmation Dialog
     if (showDeleteSelectionDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteSelectionDialog = false },
@@ -292,6 +469,31 @@ fun PackageScreen(
             dismissButton = {
                 TextButton(onClick = { showDeleteSelectionDialog = false }) {
                     Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showPreviewDialog != null) {
+        val stickerToPreview = showPreviewDialog!!
+        AlertDialog(
+            onDismissRequest = { showPreviewDialog = null },
+            title = { Text(stringResource(R.string.sticker_preview)) },
+            text = {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(File(context.filesDir, stickerToPreview.imageFile))
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showPreviewDialog = null }) {
+                    Text(stringResource(R.string.close))
                 }
             }
         )
@@ -323,7 +525,7 @@ fun PackageScreen(
                          }
                      } else {
                          IconButton(onClick = { navController.popBackStack() }) {
-                             Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.back))
+                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                          }
                      }
                 },
@@ -345,10 +547,11 @@ fun PackageScreen(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.navigationBarsPadding() // Ensures buttons are above the system gesture bar
+                    modifier = Modifier.navigationBarsPadding()
                 ) {
-                    // 2. Add to WhatsApp Button (Green, Extended FAB, Floating Pill)
                     if (stickerPackageState is UiState.Success) {
+                        val isPackFull = (stickerPackageState as UiState.Success).data.stickers.size >= 30
+                        
                         ExtendedFloatingActionButton(
                             onClick = { viewModel.sendStickerPack() },
                             containerColor = Color(0xFF25D366),
@@ -357,15 +560,25 @@ fun PackageScreen(
                             icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
                             text = { Text(stringResource(R.string.add_to_whatsapp), fontWeight = FontWeight.Bold) }
                         )
-                    }
-                    
-                    // 1. Add Sticker Button (Purple, Standard FAB)
-                    FloatingActionButton(
-                        onClick = { permissionState.launchPermissionRequest() },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_sticker))
+                        
+                        if (!isPackFull) {
+                            FloatingActionButton(
+                                onClick = {
+                                    if (permissionState.status.isGranted) {
+                                        val mimeType = if (isAnimated) "video/*" else "image/*"
+                                        imagePickerLauncher.launch(mimeType)
+                                    } else if (permissionState.status.shouldShowRationale) {
+                                        showPermissionRationaleDialog = true
+                                    } else {
+                                        permissionState.launchPermissionRequest()
+                                    }
+                                },
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_sticker))
+                            }
+                        }
                     }
                 }
             }
@@ -411,8 +624,9 @@ fun PackageScreen(
                                             } else {
                                                 selectedStickers + sticker.id
                                             }
+                                        } else {
+                                            showPreviewDialog = sticker
                                         }
-                                        // Else normal click behavior (e.g. preview) if implemented
                                     },
                                     onDelete = { showDeleteStickerDialog = sticker }
                                 )
@@ -439,6 +653,12 @@ private fun StickerItem(
     onDelete: () -> Unit
 ) {
     val context = LocalContext.current
+    val imageRequest = remember(sticker.imageFile) {
+        ImageRequest.Builder(context)
+            .data(File(context.filesDir, sticker.imageFile))
+            .crossfade(true)
+            .build()
+    }
     
     Card(
         shape = RoundedCornerShape(12.dp),
@@ -451,7 +671,7 @@ private fun StickerItem(
     ) {
         Box(modifier = Modifier.aspectRatio(1f)) {
             AsyncImage(
-                model = File(context.filesDir, sticker.imageFile),
+                model = imageRequest,
                 contentDescription = null,
                 modifier = Modifier
                     .fillMaxSize()
@@ -459,7 +679,6 @@ private fun StickerItem(
             )
             
             if (isSelectionMode) {
-                // Overlay for selection mode
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -479,7 +698,6 @@ private fun StickerItem(
                     }
                 }
             } else {
-                // Delete Button Overlay (Only visible when NOT selecting)
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -500,4 +718,8 @@ private fun StickerItem(
             }
         }
     }
+}
+
+private fun safeEncodeUri(uri: String): String {
+    return URLEncoder.encode(uri, StandardCharsets.UTF_8.toString())
 }

@@ -1,7 +1,10 @@
 package com.example.wppsticker.di
 
 import android.content.Context
+import android.os.Build
 import coil.ImageLoader
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import dagger.Module
@@ -19,9 +22,17 @@ object CoilModule {
     @Singleton
     fun provideImageLoader(@ApplicationContext context: Context): ImageLoader {
         return ImageLoader.Builder(context)
+            .components {
+                // Add decoder for animated GIFs and WebP
+                if (Build.VERSION.SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
+            }
             // Disable disk cache - all our images are local files already.
             // This prevents duplicating the stickers on the user's storage.
-            .diskCache(null) 
+            .diskCache(null)
             .memoryCache {
                 MemoryCache.Builder(context)
                     // Set a fixed memory cache size (e.g., 32MB) to have a predictable memory footprint.

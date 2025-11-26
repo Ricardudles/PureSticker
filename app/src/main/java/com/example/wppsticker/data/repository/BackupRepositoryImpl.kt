@@ -48,6 +48,7 @@ class BackupRepositoryImpl @Inject constructor(
                     publisherWebsite = packWithStickers.stickerPackage.publisherWebsite,
                     privacyPolicyWebsite = packWithStickers.stickerPackage.privacyPolicyWebsite,
                     licenseAgreementWebsite = packWithStickers.stickerPackage.licenseAgreementWebsite,
+                    isAnimated = packWithStickers.stickerPackage.animated,
                     stickers = packWithStickers.stickers.map { sticker ->
                         BackupStickerDto(
                             imageFile = sticker.imageFile, 
@@ -143,7 +144,8 @@ class BackupRepositoryImpl @Inject constructor(
                 publisherEmail = backupPackage.publisherEmail,
                 publisherWebsite = backupPackage.publisherWebsite,
                 privacyPolicyWebsite = backupPackage.privacyPolicyWebsite,
-                licenseAgreementWebsite = backupPackage.licenseAgreementWebsite
+                licenseAgreementWebsite = backupPackage.licenseAgreementWebsite,
+                animated = backupPackage.isAnimated
             )
             val newPackageId = stickerRepository.insertStickerPackage(newPackage).toInt()
 

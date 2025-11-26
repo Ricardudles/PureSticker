@@ -2,18 +2,18 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.hilt.android)
     id("kotlin-kapt")
-    id("com.google.dagger.hilt.android")
 }
 
 android {
     namespace = "com.example.wppsticker"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.wppsticker"
         minSdk = 26
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -30,18 +30,15 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
         freeCompilerArgs += "-Xsuppress-version-warnings"
     }
     buildFeatures {
         compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
     }
     packaging {
         resources {
@@ -49,6 +46,8 @@ android {
         }
     }
 }
+
+// Repositories are managed in settings.gradle.kts with FAIL_ON_PROJECT_REPOS
 
 dependencies {
 
@@ -60,33 +59,38 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation("androidx.compose.material:material-icons-extended") // Added for more icons like Crop
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.material3.adaptive.navigation.suite)
 
     // Hilt
-    implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-compiler:2.51.1")
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation(libs.hilt.android)
+    kapt(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
 
     // Navigation
-    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation(libs.androidx.navigation.compose)
 
     // Room
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    implementation(libs.bundles.room)
+    kapt(libs.androidx.room.compiler)
 
-    // Coil
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    // Coil (Bundle: compose, video, gif)
+    implementation(libs.bundles.coil)
     
     // Accompanist
-    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
+    implementation(libs.accompanist.permissions)
 
-    // Image Cropper (CanHub)
-    implementation("com.github.CanHub:Android-Image-Cropper:4.4.0")
+    // Image Cropper
+    implementation(libs.android.image.cropper)
 
-    // Gson for JSON serialization (Backup/Restore)
-    implementation("com.google.code.gson:gson:2.10.1")
+    // Gson
+    implementation(libs.gson)
+
+    // Media3 / ExoPlayer (Bundle)
+    implementation(libs.bundles.media3)
+
+    // ML Kit
+    implementation(libs.mlkit.segmentation.selfie)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

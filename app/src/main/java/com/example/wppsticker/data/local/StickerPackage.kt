@@ -17,5 +17,7 @@ data class StickerPackage(
     val publisherEmail: String = "",
     val publisherWebsite: String = "",
     val privacyPolicyWebsite: String = "",
-    val licenseAgreementWebsite: String = ""
+    val licenseAgreementWebsite: String = "",
+    // Animated Stickers Support
+    val animated: Boolean = false
 )

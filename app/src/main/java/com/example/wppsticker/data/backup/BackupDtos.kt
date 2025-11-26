@@ -21,6 +21,7 @@ data class BackupPackageDto(
     val publisherWebsite: String,
     val privacyPolicyWebsite: String,
     val licenseAgreementWebsite: String,
+    val isAnimated: Boolean = false, // Added for animated stickers, default to false for old backups
     val stickers: List<BackupStickerDto>
 )
 
