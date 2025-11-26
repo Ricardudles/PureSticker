@@ -191,7 +191,8 @@ fun PackageSelectionScreen(
             if (!showSuccessOverlay) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.navigationBarsPadding()
                 ) {
                     // Confirm FAB (Visible only if selection)
                     if (selectedPackageId != null) {
@@ -229,8 +230,8 @@ fun PackageSelectionScreen(
                     if (showFab) {
                         FloatingActionButton(
                             onClick = { showCreateDialog = true },
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ) {
                             Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_new_pack))
                         }

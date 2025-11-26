@@ -104,7 +104,7 @@ fun SaveStickerScreen(
             ) {
                 // Preview Card
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(8.dp),
                     modifier = Modifier.padding(bottom = 24.dp)
                 ) {
@@ -119,7 +119,7 @@ fun SaveStickerScreen(
                 // --- Form Area ---
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {

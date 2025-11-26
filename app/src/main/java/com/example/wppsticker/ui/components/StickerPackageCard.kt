@@ -42,6 +42,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.wppsticker.R
 import com.example.wppsticker.data.local.Sticker
+import com.example.wppsticker.ui.theme.WhatsAppGreen
 import java.io.File
 
 @Composable
@@ -67,7 +68,7 @@ fun StickerPackageCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(enabled = !isFull, onClick = onClick),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (isFull) MaterialTheme.colorScheme.surface.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface
             ),
@@ -109,7 +110,7 @@ fun StickerPackageCard(
                             Icon(
                                 Icons.AutoMirrored.Filled.Send, 
                                 contentDescription = stringResource(R.string.send_to_whatsapp_desc),
-                                tint = MaterialTheme.colorScheme.secondary
+                                tint = WhatsAppGreen
                             )
                         }
                     }

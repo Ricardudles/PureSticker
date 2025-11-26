@@ -19,10 +19,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -38,12 +41,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -58,8 +61,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -68,6 +75,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -79,6 +87,7 @@ import com.example.wppsticker.R
 import com.example.wppsticker.ui.editor.StickerTextDisplay
 import com.example.wppsticker.ui.editor.TextEditorPanel
 import com.example.wppsticker.ui.editor.ToolButton
+import com.example.wppsticker.ui.editor.TextData
 import java.util.Locale
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -114,7 +123,12 @@ fun VideoEditorScreen(
         navController.currentBackStackEntry?.arguments?.getInt("packageId", -1) ?: -1
     }
 
-    BackHandler { showExitDialog = true }
+    // Intercept Back Button
+    BackHandler(enabled = !isBusy) { // Disable back handler when busy to prevent exit dialog
+        showExitDialog = true
+    }
+    // Additional BackHandler to consume back press when busy (doing nothing)
+    BackHandler(enabled = isBusy) { }
 
     LaunchedEffect(navigateToSave) {
         navigateToSave?.let { route ->
@@ -148,15 +162,26 @@ fun VideoEditorScreen(
     
     if (showTextDialog) {
         var textInput by remember { mutableStateOf("") }
+        val focusRequester = remember { FocusRequester() }
+        
+        LaunchedEffect(Unit) {
+            focusRequester.requestFocus()
+        }
+        
         AlertDialog(
             onDismissRequest = { viewModel.showTextDialog(false) },
             title = { Text(stringResource(R.string.new_text_title)) },
             text = { 
-                TextField(
+                OutlinedTextField(
                     value = textInput, 
                     onValueChange = { textInput = it },
                     placeholder = { Text(stringResource(R.string.type_here_placeholder)) },
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { 
+                        if (textInput.isNotBlank()) viewModel.addText(textInput) 
+                    }),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
                 ) 
             },
             confirmButton = { 
@@ -175,32 +200,32 @@ fun VideoEditorScreen(
             TopAppBar(
                 title = { },
                 navigationIcon = {
-                    IconButton(onClick = { showExitDialog = true }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = Color.White)
+                    IconButton(onClick = { if (!isBusy) showExitDialog = true }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = MaterialTheme.colorScheme.onBackground)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
                     // Undo Button
-                    IconButton(onClick = { viewModel.undo() }, enabled = canUndo) {
+                    IconButton(onClick = { viewModel.undo() }, enabled = canUndo && !isBusy) {
                         Icon(
                             Icons.AutoMirrored.Filled.Undo,
                             contentDescription = stringResource(R.string.undo),
-                            tint = if (canUndo) Color.White else Color.Gray
+                            tint = if (canUndo && !isBusy) MaterialTheme.colorScheme.onBackground else Color.Gray
                         )
                     }
                     // Redo Button
-                    IconButton(onClick = { viewModel.redo() }, enabled = canRedo) {
+                    IconButton(onClick = { viewModel.redo() }, enabled = canRedo && !isBusy) {
                         Icon(
                             Icons.AutoMirrored.Filled.Redo,
                             contentDescription = stringResource(R.string.redo),
-                            tint = if (canRedo) Color.White else Color.Gray
+                            tint = if (canRedo && !isBusy) MaterialTheme.colorScheme.onBackground else Color.Gray
                         )
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    TextButton(onClick = { viewModel.onSave() }) {
+                    TextButton(onClick = { viewModel.onSave() }, enabled = !isBusy) {
                         Text(stringResource(R.string.next), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.next))
@@ -213,7 +238,7 @@ fun VideoEditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(Color(0xFF121212))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             // --- WORKSPACE ---
             BoxWithConstraints(
@@ -238,14 +263,45 @@ fun VideoEditorScreen(
                         .background(Color.Black) // Background for video
                         .clipToBounds()
                         .pointerInput(Unit) {
-                            detectTapGestures { viewModel.onTextSelected(null) }
+                            if (!isBusy) detectTapGestures { viewModel.onTextSelected(null) }
                         }
                         .pointerInput(Unit) {
-                            detectTransformGestures { _, pan, zoom, _ ->
-                                viewModel.updateCropState(offset = pan, scale = zoom)
+                            if (!isBusy) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    viewModel.updateCropState(offset = pan, scale = zoom)
+                                }
                             }
                         }
                 ) {
+                    // Checkerboard Background (Transparency Indicator)
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val checkerSize = 20.dp.toPx() // Checker size
+                        val rows = (size.height / checkerSize).toInt() + 1
+                        val cols = (size.width / checkerSize).toInt() + 1
+                        
+                        for (row in 0 until rows) {
+                            for (col in 0 until cols) {
+                                val color = if ((row + col) % 2 == 0) Color(0xFF333333) else Color(0xFF222222)
+                                drawRect(
+                                    color = color,
+                                    topLeft = Offset(col * checkerSize, row * checkerSize),
+                                    size = Size(checkerSize, checkerSize)
+                                )
+                            }
+                        }
+                    }
+
+                    // Guide Border
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawRect(
+                            color = Color.White.copy(alpha = 0.3f),
+                            style = Stroke(
+                                width = 2.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 20f), 0f)
+                            )
+                        )
+                    }
+
                     // Video Player Layer
                     if (videoUri != null) {
                         AndroidView(
@@ -287,10 +343,10 @@ fun VideoEditorScreen(
                                     }
                                     .then(borderModifier)
                                     .pointerInput(textData.id) {
-                                        detectTapGestures { viewModel.onTextSelected(textData.id) }
+                                        if (!isBusy) detectTapGestures { viewModel.onTextSelected(textData.id) }
                                     }
                                     .pointerInput(textData.id, isSelected) {
-                                        if (isSelected) {
+                                        if (isSelected && !isBusy) {
                                             detectTransformGestures { _, pan, zoom, rotation ->
                                                 val canvasPan = pan * scaleToCanvas
                                                 viewModel.updateSelectedText(offset = canvasPan, scale = zoom, rotation = rotation)
@@ -318,13 +374,14 @@ fun VideoEditorScreen(
             // --- BOTTOM DOCK ---
             Surface(
                 modifier = Modifier.align(Alignment.BottomCenter),
-                color = Color(0xFF1E1E1E),
+                color = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 shadowElevation = 16.dp
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding() // Safe Area
                         .padding(16.dp)
                         .padding(bottom = 8.dp)
                 ) {
@@ -392,6 +449,7 @@ fun VideoEditorScreen(
                                 onFontChange = { viewModel.updateSelectedTextFont(it) },
                                 onColorChange = { viewModel.updateSelectedTextColor(it) },
                                 onScaleChange = { viewModel.setTextScale(it) },
+                                onDelete = { viewModel.deleteSelectedText() },
                                 onDone = { viewModel.onTextSelected(null) }
                             )
                         }
@@ -427,7 +485,6 @@ fun VideoEditorScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoToolsPanel(
     isGridEnabled: Boolean,

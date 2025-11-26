@@ -12,6 +12,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.SentimentSatisfied
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -74,8 +76,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
@@ -83,6 +87,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
@@ -90,6 +95,7 @@ import coil.request.ImageRequest
 import com.example.wppsticker.R
 import com.example.wppsticker.data.local.Sticker
 import com.example.wppsticker.nav.Screen
+import com.example.wppsticker.ui.theme.WhatsAppGreen
 import com.example.wppsticker.util.UiState
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -98,7 +104,6 @@ import com.google.accompanist.permissions.shouldShowRationale
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import android.graphics.ImageDecoder
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -480,16 +485,38 @@ fun PackageScreen(
             onDismissRequest = { showPreviewDialog = null },
             title = { Text(stringResource(R.string.sticker_preview)) },
             text = {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(File(context.filesDir, stickerToPreview.imageFile))
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(File(context.filesDir, stickerToPreview.imageFile))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                    
+                    if (stickerToPreview.emojis.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .background(
+                                    MaterialTheme.colorScheme.surfaceVariant, // Changed to surfaceVariant as safer option
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = stickerToPreview.emojis.joinToString("  "), // Added spacing
+                                style = MaterialTheme.typography.headlineSmall
+                            )
+                        }
+                    }
+                }
             },
             confirmButton = {
                 TextButton(onClick = { showPreviewDialog = null }) {
@@ -510,10 +537,16 @@ fun PackageScreen(
                 stringResource(R.string.loading)
             }
             
+            // Smoothly animate background color change
+            val topBarColor by animateColorAsState(
+                targetValue = if (isSelectionMode) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.background,
+                label = "TopBarColor"
+            )
+
             TopAppBar(
                 title = { Text(title, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = if (isSelectionMode) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
+                    containerColor = topBarColor,
                     titleContentColor = MaterialTheme.colorScheme.onBackground,
                     navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
                     actionIconContentColor = MaterialTheme.colorScheme.onBackground
@@ -554,10 +587,10 @@ fun PackageScreen(
                         
                         ExtendedFloatingActionButton(
                             onClick = { viewModel.sendStickerPack() },
-                            containerColor = Color(0xFF25D366),
+                            containerColor = WhatsAppGreen,
                             contentColor = Color.White,
                             expanded = true,
-                            icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null) },
+                            icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color.White) }, // Explicit tint
                             text = { Text(stringResource(R.string.add_to_whatsapp), fontWeight = FontWeight.Bold) }
                         )
                         
@@ -595,8 +628,14 @@ fun PackageScreen(
                 is UiState.Success -> {
                     if (state.data.stickers.isEmpty()) {
                          Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.pack_empty), color = Color.Gray)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Icon(
+                                imageVector = Icons.Default.SentimentSatisfied, // Using a standard icon
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(80.dp).alpha(0.5f)
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(stringResource(R.string.pack_empty), color = Color.Gray, style = MaterialTheme.typography.titleMedium)
                             Text(stringResource(R.string.tap_plus_hint), color = Color.DarkGray)
                         }
                     } else {
@@ -664,19 +703,41 @@ private fun StickerItem(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp),
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        )
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp)) // Ensure ripple respects the shape
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
     ) {
         Box(modifier = Modifier.aspectRatio(1f)) {
             AsyncImage(
                 model = imageRequest,
                 contentDescription = null,
+                contentScale = ContentScale.Fit, // Fix content scale
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(8.dp) 
             )
+
+            if (sticker.emojis.isNotEmpty() && !isSelectionMode) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = sticker.emojis.take(3).joinToString(""),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 12.sp
+                    )
+                }
+            }
             
             if (isSelectionMode) {
                 Box(

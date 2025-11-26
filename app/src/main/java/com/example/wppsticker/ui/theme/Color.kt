@@ -7,11 +7,18 @@ val PrimaryColor = Color(0xFFBB86FC) // Soft Purple
 val PrimaryVariant = Color(0xFF3700B3)
 val SecondaryColor = Color(0xFF03DAC6) // Teal Accent
 
+// Brand Colors
+val WhatsAppGreen = Color(0xFF25D366)
+
 // Backgrounds
 val BackgroundDark = Color(0xFF121212) // Deep Dark Background
 val SurfaceDark = Color(0xFF1E1E1E)    // Slightly lighter for cards/sheets
 val OnBackground = Color(0xFFE0E0E0)   // Off-white text
 val OnSurface = Color(0xFFEEEEEE)
+
+// UI Component Colors
+val ComponentBackground = Color(0xFF333333) // Used for tool buttons, selectors
+val BorderColor = Color(0xFF444444) // Used for borders
 
 // Errors & Status
 val ErrorColor = Color(0xFFCF6679)

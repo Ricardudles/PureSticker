@@ -1,7 +1,6 @@
 package com.example.wppsticker.ui.videoeditor
 
 import com.example.wppsticker.ui.editor.TextData
-import com.example.wppsticker.ui.videoeditor.VideoEditorViewModel.VideoCropState
 
 data class VideoEditorState(
     val cropState: VideoCropState = VideoCropState(),

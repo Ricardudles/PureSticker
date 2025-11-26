@@ -54,6 +54,7 @@
     <string name="author_label">Author</string>
     <string name="animated_pack_label">Animated Pack</string>
     <string name="animated_pack_desc">Animated packs only support GIF and WebP files.</string>
+    <string name="advanced_options_optional">Advanced Options (Optional)</string>
 
     <!-- Editor Screen -->
     <string name="exit_editor_title">Exit Editor?</string>
@@ -159,6 +160,7 @@
     <string name="pkg_name_too_long_error">Package Name is too long (max 128 chars).</string>
     <string name="author_required_error">Author is required.</string>
     <string name="author_too_long_error">Author name is too long (max 128 chars).</string>
+    <string name="invalid_email_format">Invalid email format</string>
     <string name="invalid_email_error">Invalid Email address.</string>
     <string name="invalid_url_error">Website must start with http:// or https://</string>
     <string name="limit_stickers_error">This pack has reached the limit of 30 stickers.</string>

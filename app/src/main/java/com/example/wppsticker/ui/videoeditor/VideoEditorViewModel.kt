@@ -70,10 +70,6 @@ class VideoEditorViewModel @Inject constructor(
     val thumbnails: StateFlow<List<Bitmap>> = _thumbnails.asStateFlow()
 
     // --- CROP STATE (Zoom/Pan) ---
-    data class VideoCropState(
-        val offset: Offset = Offset.Zero,
-        val scale: Float = 1f
-    )
     private val _cropState = MutableStateFlow(VideoCropState())
     val cropState: StateFlow<VideoCropState> = _cropState.asStateFlow()
 
@@ -121,7 +117,7 @@ class VideoEditorViewModel @Inject constructor(
     val packageIdArg: Int = savedStateHandle.get<Int>("packageId") ?: -1
 
     init {
-        val uriString = savedStateHandle.get<String>("stickerUri") // This was inconsistent in EditorViewModel vs VideoEditorViewModel
+        val uriString = savedStateHandle.get<String>("stickerUri") 
         if (uriString != null) {
             val uri = Uri.parse(uriString)
             _videoUri.value = uri
@@ -326,6 +322,13 @@ class VideoEditorViewModel @Inject constructor(
         _texts.update { it + newText }
         _selectedTextId.value = newText.id
         _showTextDialog.value = false
+    }
+    
+    fun deleteSelectedText() {
+        val id = _selectedTextId.value ?: return
+        pushToUndoStack()
+        _texts.update { it.filter { text -> text.id != id } }
+        _selectedTextId.value = null
     }
 
     fun onTextSelected(id: String?) { _selectedTextId.value = id }

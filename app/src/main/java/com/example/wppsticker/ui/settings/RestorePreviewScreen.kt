@@ -151,7 +151,7 @@ private fun RestoreItem(
     val isEnabled = backupInfo.status == RestoreStatus.NEW
     
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) 
                              else MaterialTheme.colorScheme.surface

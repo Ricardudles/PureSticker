@@ -208,6 +208,13 @@ class EditorViewModel @Inject constructor(
         _selectedTextId.value = newText.id
         _showTextDialog.value = false
     }
+    
+    fun deleteSelectedText() {
+        val id = _selectedTextId.value ?: return
+        pushToUndoStack()
+        _texts.update { it.filter { text -> text.id != id } }
+        _selectedTextId.value = null
+    }
 
     fun onTextSelected(id: String?) { _selectedTextId.value = id }
     fun showTextDialog(show: Boolean) { _showTextDialog.value = show }
