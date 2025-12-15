@@ -597,6 +597,10 @@ fun PackageScreen(
                         if (!isPackFull) {
                             FloatingActionButton(
                                 onClick = {
+                                    if (isAnimated) {
+                                        Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
+                                        return@FloatingActionButton
+                                    }
                                     if (permissionState.status.isGranted) {
                                         val mimeType = if (isAnimated) "video/*" else "image/*"
                                         imagePickerLauncher.launch(mimeType)
@@ -647,7 +651,7 @@ fun PackageScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(state.data.stickers) { sticker ->
-                                StickerItem(
+                                StickerItemView(
                                     sticker = sticker,
                                     isSelectionMode = isSelectionMode,
                                     isSelected = selectedStickers.contains(sticker.id),
@@ -683,7 +687,7 @@ fun PackageScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun StickerItem(
+private fun StickerItemView(
     sticker: Sticker,
     isSelectionMode: Boolean,
     isSelected: Boolean,

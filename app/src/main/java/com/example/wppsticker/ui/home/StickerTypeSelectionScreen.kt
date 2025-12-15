@@ -212,10 +212,11 @@ fun StickerTypeSelectionScreen(navController: NavController) {
                 TypeSelectionCard(
                     icon = Icons.Default.Movie,
                     title = stringResource(R.string.animated_sticker),
-                    subtitle = stringResource(R.string.animated_sticker_desc),
-                    color = Color(0xFF00BCD4),
+                    subtitle = stringResource(R.string.coming_soon),
+                    color = Color.Gray,
                     modifier = Modifier.weight(1f),
-                    onClick = { onTypeSelected(true) }
+                    isEnabled = false,
+                    onClick = { /* onTypeSelected(true) */ }
                 )
             }
         }
@@ -229,12 +230,13 @@ fun TypeSelectionCard(
     subtitle: String,
     color: Color,
     modifier: Modifier = Modifier,
+    isEnabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Card(
         modifier = modifier
             .aspectRatio(0.8f)
-            .clickable { onClick() },
+            .clickable(enabled = isEnabled) { onClick() },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2F2F2F)),
         elevation = CardDefaults.cardElevation(4.dp)
@@ -263,13 +265,13 @@ fun TypeSelectionCard(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = if (isEnabled) Color.White else Color.Gray
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.LightGray
+                color = if (isEnabled) Color.LightGray else Color.Gray
             )
         }
     }

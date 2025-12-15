@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -116,27 +117,25 @@ fun CreatePackageDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Animated Switch
+                // Animated Switch - DISABLED for now
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(enabled = forceIsAnimated == null) { isAnimated = !isAnimated }
+                        // .clickable(enabled = forceIsAnimated == null) { isAnimated = !isAnimated } // Disable click
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.animated_pack_label))
-                        if (isAnimated) {
-                            Text(
-                                stringResource(R.string.animated_pack_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        Text(stringResource(R.string.animated_pack_label), color = Color.Gray)
+                        Text(
+                            stringResource(R.string.coming_soon),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
                     }
                     Switch(
-                        checked = isAnimated, 
-                        onCheckedChange = { if (forceIsAnimated == null) isAnimated = it },
-                        enabled = forceIsAnimated == null
+                        checked = false, // Force unchecked
+                        onCheckedChange = { }, // Do nothing
+                        enabled = false // Disable
                     )
                 }
                 
@@ -170,7 +169,7 @@ fun CreatePackageDialog(
                             label = { Text(stringResource(R.string.email_optional)) },
                             singleLine = true,
                             isError = emailError,
-                            supportingText = if (emailError) { { Text("Invalid email format") } } else null,
+                            supportingText = if (emailError) { { Text(stringResource(R.string.invalid_email_format)) } } else null,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -215,7 +214,8 @@ fun CreatePackageDialog(
                             keyboardActions = KeyboardActions(onDone = {
                                 focusManager.clearFocus()
                                 if (validate()) {
-                                    onCreate(name, author, isAnimated, email, website, privacyPolicy, license)
+                                    // Ensure isAnimated is always false
+                                    onCreate(name, author, false, email, website, privacyPolicy, license)
                                 }
                             }),
                             modifier = Modifier.fillMaxWidth()
@@ -228,7 +228,8 @@ fun CreatePackageDialog(
             Button(
                 onClick = { 
                     if (validate()) {
-                        onCreate(name, author, isAnimated, email, website, privacyPolicy, license)
+                        // Ensure isAnimated is always false
+                        onCreate(name, author, false, email, website, privacyPolicy, license)
                     }
                 }
             ) {

@@ -17,6 +17,7 @@
     <string name="ok">OK</string>
     <string name="undo">Desfazer</string>
     <string name="redo">Refazer</string>
+    <string name="coming_soon">Em Breve</string>
     
     <!-- Home Screen -->
     <string name="my_stickers">Minhas Figurinhas</string>
@@ -153,6 +154,7 @@
     <string name="pkg_name_too_long_error">O Nome do Pacote é muito longo (máx 128 caracteres).</string>
     <string name="author_required_error">O Autor é obrigatório.</string>
     <string name="author_too_long_error">O nome do Autor é muito longo (máx 128 caracteres).</string>
+    <string name="invalid_email_format">Formato de email inválido</string>
     <string name="invalid_email_error">Endereço de Email inválido.</string>
     <string name="invalid_url_error">O Website deve começar com http:// ou https://</string>
     <string name="limit_stickers_error">Este pacote atingiu o limite de 30 figurinhas.</string>
@@ -170,7 +172,6 @@
     
     <!-- Accessibility & Content Descriptions -->
     <string name="settings">Configurações</string>
-    <string name="create_sticker">Criar Figurinha</string>
     <string name="send_to_whatsapp_desc">Enviar para o WhatsApp</string>
     <string name="delete_pack_desc">Excluir Pacote</string>
     <string name="more_stickers_desc">Mais figurinhas</string>
