@@ -27,6 +27,8 @@
     <string name="stickers_by_author">%1$d figurinhas • %2$s</string>
     <string name="remaining_stickers_count">+%1$d</string>
     <string name="empty_pack">Pacote vazio</string>
+    <string name="no_anim_packs_found">Nenhum pacote animado encontrado</string>
+    <string name="no_static_packs_found">Nenhum pacote estático encontrado</string>
 
     <!-- Type Selection Screen -->
     <string name="select_sticker_type">Selecione o Tipo de Figurinha</string>
@@ -44,6 +46,8 @@
     <string name="package_created_toast">Pacote criado!</string>
     <string name="pack_full_toast">Este pacote está cheio (30/30)</string>
     <string name="sticker_saved_success">Figurinha Salva!</string>
+    <string name="confirm_selection">Confirmar</string>
+    <string name="no_package_selected">Nenhum pacote selecionado</string>
 
     <!-- Create Package Dialog -->
     <string name="create_package_title">Criar Novo Pacote</string>
@@ -51,6 +55,7 @@
     <string name="author_label">Autor</string>
     <string name="animated_pack_label">Pacote Animado</string>
     <string name="animated_pack_desc">Pacotes animados suportam apenas arquivos GIF e WebP.</string>
+    <string name="advanced_options_optional">Opções Avançadas (Opcional)</string>
     
     <!-- Editor Screen -->
     <string name="exit_editor_title">Sair do Editor?</string>
@@ -110,6 +115,8 @@
     <string name="edit_details">Editar Detalhes</string>
     <string name="delete_sticker_title">Excluir Figurinha?</string>
     <string name="delete_sticker_msg">Tem certeza que deseja remover esta figurinha do pacote? Isso não pode ser desfeito.</string>
+    <string name="delete_package_title">Excluir Pacote?</string>
+    <string name="delete_package_msg">Tem certeza que deseja excluir este pacote? Isso não pode ser desfeito.</string>
     <string name="delete_selection_title">Excluir %1$d Figurinhas?</string>
     <string name="delete_selection_msg">Tem certeza que deseja remover as figurinhas selecionadas? Isso não pode ser desfeito.</string>
     <string name="delete_all">Excluir Tudo</string>
