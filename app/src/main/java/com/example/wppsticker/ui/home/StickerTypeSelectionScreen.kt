@@ -204,7 +204,7 @@ fun StickerTypeSelectionScreen(navController: NavController) {
                     icon = Icons.Default.Image,
                     title = stringResource(R.string.static_sticker),
                     subtitle = stringResource(R.string.static_sticker_desc),
-                    color = Color(0xFF9C27B0),
+                    color = MaterialTheme.colorScheme.primary, // Used Theme Primary
                     modifier = Modifier.weight(1f),
                     onClick = { onTypeSelected(false) }
                 )
@@ -213,7 +213,7 @@ fun StickerTypeSelectionScreen(navController: NavController) {
                     icon = Icons.Default.Movie,
                     title = stringResource(R.string.animated_sticker),
                     subtitle = stringResource(R.string.coming_soon),
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, // Used Surface Variant for disabled look
                     modifier = Modifier.weight(1f),
                     isEnabled = false,
                     onClick = { /* onTypeSelected(true) */ }
@@ -238,7 +238,7 @@ fun TypeSelectionCard(
             .aspectRatio(0.8f)
             .clickable(enabled = isEnabled) { onClick() },
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2F2F2F)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), // Replaced hardcoded color
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(
@@ -265,13 +265,13 @@ fun TypeSelectionCard(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (isEnabled) Color.White else Color.Gray
+                color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Themed text color
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isEnabled) Color.LightGray else Color.Gray
+                color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) // Themed subtitle
             )
         }
     }

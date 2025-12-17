@@ -539,7 +539,7 @@ fun PackageScreen(
             
             // Smoothly animate background color change
             val topBarColor by animateColorAsState(
-                targetValue = if (isSelectionMode) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.background,
+                targetValue = if (isSelectionMode) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.background,
                 label = "TopBarColor"
             )
 
@@ -588,9 +588,9 @@ fun PackageScreen(
                         ExtendedFloatingActionButton(
                             onClick = { viewModel.sendStickerPack() },
                             containerColor = WhatsAppGreen,
-                            contentColor = Color.White,
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
                             expanded = true,
-                            icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color.White) }, // Explicit tint
+                            icon = { Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary) }, 
                             text = { Text(stringResource(R.string.add_to_whatsapp), fontWeight = FontWeight.Bold) }
                         )
                         
@@ -635,12 +635,12 @@ fun PackageScreen(
                             Icon(
                                 imageVector = Icons.Default.SentimentSatisfied, // Using a standard icon
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(80.dp).alpha(0.5f)
                             )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text(stringResource(R.string.pack_empty), color = Color.Gray, style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(R.string.tap_plus_hint), color = Color.DarkGray)
+                            Text(stringResource(R.string.pack_empty), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.tap_plus_hint), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                         }
                     } else {
                         LazyVerticalGrid(
@@ -730,7 +730,7 @@ private fun StickerItemView(
                         .align(Alignment.BottomEnd)
                         .padding(4.dp)
                         .background(
-                            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
                             shape = RoundedCornerShape(8.dp)
                         )
                         .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -738,7 +738,8 @@ private fun StickerItemView(
                     Text(
                         text = sticker.emojis.take(3).joinToString(""),
                         style = MaterialTheme.typography.labelSmall,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -757,7 +758,7 @@ private fun StickerItemView(
                         Icon(
                             Icons.Default.CheckCircle, 
                             contentDescription = stringResource(R.string.selected),
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -769,14 +770,14 @@ private fun StickerItemView(
                         .padding(4.dp)
                         .size(28.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.7f))
+                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.7f))
                         .clickable { onDelete() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Delete, 
                         contentDescription = stringResource(R.string.delete),
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(16.dp)
                     )
                 }

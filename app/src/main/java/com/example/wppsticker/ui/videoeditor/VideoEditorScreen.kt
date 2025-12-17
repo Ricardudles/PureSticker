@@ -211,7 +211,7 @@ fun VideoEditorScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.Undo,
                             contentDescription = stringResource(R.string.undo),
-                            tint = if (canUndo && !isBusy) MaterialTheme.colorScheme.onBackground else Color.Gray
+                            tint = if (canUndo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
                     // Redo Button
@@ -219,7 +219,7 @@ fun VideoEditorScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.Redo,
                             contentDescription = stringResource(R.string.redo),
-                            tint = if (canRedo && !isBusy) MaterialTheme.colorScheme.onBackground else Color.Gray
+                            tint = if (canRedo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
 
@@ -260,7 +260,7 @@ fun VideoEditorScreen(
                     modifier = Modifier
                         .size(workspaceSize)
                         .aspectRatio(1f)
-                        .background(Color.Black) // Background for video
+                        .background(MaterialTheme.colorScheme.surface) // Background for video
                         .clipToBounds()
                         .pointerInput(Unit) {
                             if (!isBusy) detectTapGestures { viewModel.onTextSelected(null) }
@@ -274,6 +274,8 @@ fun VideoEditorScreen(
                         }
                 ) {
                     // Checkerboard Background (Transparency Indicator)
+                    val checkerColor1 = MaterialTheme.colorScheme.outline
+                    val checkerColor2 = MaterialTheme.colorScheme.surface
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val checkerSize = 20.dp.toPx() // Checker size
                         val rows = (size.height / checkerSize).toInt() + 1
@@ -281,7 +283,7 @@ fun VideoEditorScreen(
                         
                         for (row in 0 until rows) {
                             for (col in 0 until cols) {
-                                val color = if ((row + col) % 2 == 0) Color(0xFF333333) else Color(0xFF222222)
+                                val color = if ((row + col) % 2 == 0) checkerColor1 else checkerColor2
                                 drawRect(
                                     color = color,
                                     topLeft = Offset(col * checkerSize, row * checkerSize),
@@ -390,7 +392,7 @@ fun VideoEditorScreen(
                         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                             Text(
                                 text = stringResource(R.string.video_editor_trim_video) + ": ${formatTime(trimRange.start)} - ${formatTime(trimRange.endInclusive)}",
-                                color = Color.LightGray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelSmall,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
@@ -408,7 +410,7 @@ fun VideoEditorScreen(
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Color.DarkGray)
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
                                     ) {
                                         thumbnails.forEach { bitmap ->
                                             Image(
@@ -467,16 +469,16 @@ fun VideoEditorScreen(
 
             // Loading Overlay
             if (isBusy) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.8f)), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator()
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(processingMessage ?: stringResource(R.string.loading), color = Color.White)
+                        Text(processingMessage ?: stringResource(R.string.loading), color = MaterialTheme.colorScheme.onSurface)
                         
                         // Cancel Button
                         Spacer(modifier = Modifier.height(16.dp))
                         TextButton(onClick = { viewModel.cancelSave() }) {
-                            Text(stringResource(R.string.video_editor_cancel_button), color = Color.Red)
+                            Text(stringResource(R.string.video_editor_cancel_button), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }

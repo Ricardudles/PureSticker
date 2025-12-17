@@ -84,13 +84,13 @@ fun StickerPackageCard(
                             text = name, 
                             style = MaterialTheme.typography.titleMedium, 
                             fontWeight = FontWeight.Bold,
-                            color = if (isFull) Color.Gray else MaterialTheme.colorScheme.onSurface
+                            color = if (isFull) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                              Text(
                                 stringResource(R.string.stickers_by_author, stickersCount, author), 
                                 style = MaterialTheme.typography.bodySmall, 
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (isAnimated) { 
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -161,11 +161,11 @@ fun StickerPackageCard(
                                             .build(),
                                         contentDescription = stringResource(R.string.more_stickers_desc),
                                         modifier = Modifier.fillMaxSize(),
-                                        colorFilter = ColorFilter.tint(Color.Black.copy(alpha = 0.6f), blendMode = BlendMode.SrcOver)
+                                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f), blendMode = BlendMode.SrcOver)
                                     )
                                     Text(
                                         text = stringResource(R.string.remaining_stickers_count, remainingCount + 1),
-                                        color = Color.White,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -186,7 +186,7 @@ fun StickerPackageCard(
                         }
                     }
                 } else {
-                    Text(stringResource(R.string.empty_pack), style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text(stringResource(R.string.empty_pack), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

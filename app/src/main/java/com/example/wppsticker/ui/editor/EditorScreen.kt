@@ -101,8 +101,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.wppsticker.R
-import com.example.wppsticker.ui.theme.BorderColor
-import com.example.wppsticker.ui.theme.ComponentBackground
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -211,7 +209,7 @@ fun EditorScreen(
                          Icon(
                              Icons.AutoMirrored.Filled.Undo, 
                              contentDescription = "Undo",
-                             tint = if (canUndo && !isBusy) MaterialTheme.colorScheme.onBackground else Color.Gray
+                             tint = if (canUndo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                          )
                     }
                     
@@ -220,7 +218,7 @@ fun EditorScreen(
                          Icon(
                              Icons.AutoMirrored.Filled.Redo, 
                              contentDescription = "Redo",
-                             tint = if (canRedo && !isBusy) MaterialTheme.colorScheme.onBackground else Color.Gray
+                             tint = if (canRedo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                          )
                     }
                     
@@ -269,6 +267,9 @@ fun EditorScreen(
                         .clipToBounds() 
                 ) {
                     // Checkerboard Background (Transparency Indicator)
+                    val checkerColor1 = MaterialTheme.colorScheme.outline
+                    val checkerColor2 = MaterialTheme.colorScheme.surface
+                    
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val checkerSize = 20.dp.toPx() // Checker size
                         val rows = (size.height / checkerSize).toInt() + 1
@@ -276,7 +277,7 @@ fun EditorScreen(
                         
                         for (row in 0 until rows) {
                             for (col in 0 until cols) {
-                                val color = if ((row + col) % 2 == 0) Color(0xFF333333) else Color(0xFF222222)
+                                val color = if ((row + col) % 2 == 0) checkerColor1 else checkerColor2
                                 drawRect(
                                     color = color,
                                     topLeft = Offset(col * checkerSize, row * checkerSize),
@@ -435,7 +436,7 @@ fun EditorScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.8f))
+                        .background(MaterialTheme.colorScheme.scrim)
                         .clickable(enabled = true, onClick = {}), // Block interactions
                     contentAlignment = Alignment.Center
                 ) {
@@ -469,7 +470,7 @@ fun MainToolsPanel(
             ) {
                 Text(
                     stringResource(R.string.magnet_strength, snapStrength),
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -486,7 +487,7 @@ fun MainToolsPanel(
                                 .clip(CircleShape)
                                 .background(
                                     if (isSelected) MaterialTheme.colorScheme.primary 
-                                    else Color.DarkGray
+                                    else MaterialTheme.colorScheme.surfaceVariant
                                 )
                                 .clickable { onChangeSnapStrength(level) }
                         )
@@ -563,7 +564,7 @@ fun TextEditorPanel(
         }
 
         // Font Selector
-        Text(stringResource(R.string.font_style), color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+        Text(stringResource(R.string.font_style), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
         Spacer(modifier = Modifier.height(8.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(listOf(0, 1, 2, 3, 4)) { index ->
@@ -579,7 +580,7 @@ fun TextEditorPanel(
 
         // Size Slider
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.FormatSize, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+            Icon(Icons.Default.FormatSize, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Slider(
                 value = textData.scale,
@@ -621,13 +622,13 @@ fun ToolButton(
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(if (isActive) MaterialTheme.colorScheme.primary else ComponentBackground),
+                .background(if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (isActive) MaterialTheme.colorScheme.onPrimary else Color.White,
+                tint = if (isActive) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -635,7 +636,7 @@ fun ToolButton(
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = if (isActive) MaterialTheme.colorScheme.primary else Color.Gray
+            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -673,8 +674,8 @@ fun FontSelectorItem(index: Int, isSelected: Boolean, onClick: () -> Unit) {
         4 -> stringResource(R.string.font_bold)
         else -> "?"
     }
-    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else ComponentBackground
-    val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else Color.White
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     
     Box(
         modifier = Modifier
@@ -700,7 +701,7 @@ fun ColorSelector(selectedColor: Color, onColorSelected: (Color) -> Unit, modifi
             val borderModifier = if (isSelected) {
                 Modifier.border(2.dp, Color.White, CircleShape)
             } else {
-                Modifier.border(1.dp, BorderColor, CircleShape)
+                Modifier.border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
             }
             Box(
                 modifier = Modifier

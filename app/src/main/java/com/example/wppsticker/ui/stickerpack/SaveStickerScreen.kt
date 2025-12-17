@@ -106,7 +106,8 @@ fun SaveStickerScreen(
                 Card(
                     shape = RoundedCornerShape(12.dp),
                     elevation = CardDefaults.cardElevation(8.dp),
-                    modifier = Modifier.padding(bottom = 24.dp)
+                    modifier = Modifier.padding(bottom = 24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(viewModel.stickerUri).crossfade(true).build(),
@@ -143,7 +144,7 @@ fun SaveStickerScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 disabledTextColor = MaterialTheme.colorScheme.onSurface,
                                 disabledBorderColor = MaterialTheme.colorScheme.outline,
-                                disabledPlaceholderColor = Color.Gray,
+                                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                 disabledTrailingIconColor = MaterialTheme.colorScheme.primary
                             ),
                             shape = RoundedCornerShape(12.dp)

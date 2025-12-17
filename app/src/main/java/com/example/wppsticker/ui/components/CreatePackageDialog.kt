@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -33,7 +32,7 @@ fun CreatePackageDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
-    var isAnimated by remember { mutableStateOf(forceIsAnimated ?: false) }
+    // var isAnimated by remember { mutableStateOf(forceIsAnimated ?: false) } // Force disabled for now
     
     var email by remember { mutableStateOf("") }
     var website by remember { mutableStateOf("") }
@@ -109,7 +108,7 @@ fun CreatePackageDialog(
                     keyboardActions = KeyboardActions(onDone = {
                         focusManager.clearFocus()
                         if (validate()) {
-                            onCreate(name, author, isAnimated, email, website, privacyPolicy, license)
+                            onCreate(name, author, false, email, website, privacyPolicy, license)
                         }
                     }),
                     modifier = Modifier.fillMaxWidth()
@@ -122,10 +121,9 @@ fun CreatePackageDialog(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        // .clickable(enabled = forceIsAnimated == null) { isAnimated = !isAnimated } // Disable click
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.animated_pack_label), color = Color.Gray)
+                        Text(stringResource(R.string.animated_pack_label), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             stringResource(R.string.coming_soon),
                             style = MaterialTheme.typography.bodySmall,
@@ -150,7 +148,7 @@ fun CreatePackageDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Advanced Options (Optional)", color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.advanced_options_optional), color = MaterialTheme.colorScheme.primary)
                     Icon(
                         if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = null,

@@ -33,6 +33,7 @@ import com.example.wppsticker.ui.components.CreatePackageDialog
 import com.example.wppsticker.ui.components.StickerPackageCard
 import com.example.wppsticker.ui.components.EmptyStateFiltered
 import com.example.wppsticker.ui.home.HomeViewModel
+import com.example.wppsticker.ui.theme.Success
 import com.example.wppsticker.ui.util.LoadingDialog
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -312,7 +313,7 @@ fun PackageSelectionScreen(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF4CAF50), // Success Green
+                            tint = Success, // Success Green
                             modifier = Modifier.size(80.dp)
                         )
                         Spacer(modifier = Modifier.height(16.dp))

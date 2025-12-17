@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.wppsticker.R
@@ -29,12 +28,12 @@ fun EmptyState() {
             Icon(
                 imageVector = Icons.Default.Collections,
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(100.dp).alpha(0.5f)
             )
             Spacer(modifier = Modifier.height(16.dp))
-            Text(stringResource(R.string.no_packs_found), color = Color.Gray, style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.tap_plus_create), color = Color.DarkGray)
+            Text(stringResource(R.string.no_packs_found), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.tap_plus_create), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
         }
     }
 }
@@ -46,13 +45,13 @@ fun EmptyStateFiltered(isAnimated: Boolean, onCreateClick: () -> Unit) {
             Icon(
                 imageVector = Icons.Default.Image, 
                 contentDescription = null,
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(100.dp).alpha(0.5f)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 if (isAnimated) stringResource(R.string.no_anim_packs_found) else stringResource(R.string.no_static_packs_found),
-                color = Color.Gray, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant, 
                 style = MaterialTheme.typography.titleMedium
             )
             Spacer(modifier = Modifier.height(8.dp))

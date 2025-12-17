@@ -180,23 +180,24 @@ private fun RestoreItem(
                 Text(
                     text = backupInfo.backupPackage.name, 
                     style = MaterialTheme.typography.titleMedium, 
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = stringResource(R.string.stickers_by_author, backupInfo.backupPackage.stickers.size, backupInfo.backupPackage.author), 
                     style = MaterialTheme.typography.bodySmall, 
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 if (!isEnabled) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color.Yellow, modifier = Modifier.size(12.dp))
+                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = stringResource(R.string.package_exists_label), 
                             style = MaterialTheme.typography.labelSmall, 
-                            color = Color.Yellow
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
