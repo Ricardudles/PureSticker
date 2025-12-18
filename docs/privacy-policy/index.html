@@ -59,9 +59,9 @@
     <p>When creating a sticker pack, you may optionally provide an email address, website, or author name. This information is saved strictly as metadata within the sticker pack file structure on your device. It is required by the WhatsApp Sticker format to attribute authorship but is <strong>not</strong> collected, analyzed, or sent to us.</p>
 
     <h2>2. Permissions and Device Access</h2>
-    <p>To function correctly, the App requests the following permissions:</p>
+    <p>The App is designed to minimize permission requests:</p>
     <ul>
-        <li><strong>Read Storage (Images/Video):</strong> Required to allow you to select photos and videos from your gallery to convert them into stickers.</li>
+        <li><strong>Media Access (Photo Picker):</strong> We do <strong>not</strong> request broad permissions to read your entire gallery or storage. We use the system-provided <em>Photo Picker</em>, which allows you to grant the App access only to the specific photos or videos you choose to select for creating stickers.</li>
     </ul>
     <p><em>Note: We verify WhatsApp installation using specific package queries defined in the app manifest, respecting user privacy by avoiding broad package visibility permissions.</em></p>
 

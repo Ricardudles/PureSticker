@@ -1,15 +1,12 @@
 package com.example.wppsticker.ui.stickerpack
 
-import android.Manifest
 import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import android.util.Patterns
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -97,15 +94,11 @@ import com.example.wppsticker.data.local.Sticker
 import com.example.wppsticker.nav.Screen
 import com.example.wppsticker.ui.theme.WhatsAppGreen
 import com.example.wppsticker.util.UiState
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
-import com.google.accompanist.permissions.shouldShowRationale
 import java.io.File
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PackageScreen(
     navController: NavController,
@@ -134,8 +127,9 @@ fun PackageScreen(
 
     var pickedUri by remember { mutableStateOf<Uri?>(null) }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
+    // Updated to use Photo Picker (No Permissions Needed)
+    val mediaPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri: Uri? ->
             pickedUri = uri
         }
@@ -156,31 +150,6 @@ fun PackageScreen(
             }
             navController.navigate(route)
             pickedUri = null
-        }
-    }
-
-    var showPermissionRationaleDialog by remember { mutableStateOf(false) }
-    var showPermissionSettingsDialog by remember { mutableStateOf(false) }
-
-    val permissionString = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        if (isAnimated) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_MEDIA_IMAGES
-    } else {
-        Manifest.permission.READ_EXTERNAL_STORAGE
-    }
-
-    var onPermissionResult: (Boolean) -> Unit = {}
-    val permissionState = rememberPermissionState(permissionString) { isGranted ->
-        onPermissionResult(isGranted)
-    }
-
-    onPermissionResult = { isGranted ->
-        if (isGranted) {
-            val mimeType = if (isAnimated) "video/*" else "image/*"
-            imagePickerLauncher.launch(mimeType)
-        } else {
-            if (!permissionState.status.shouldShowRationale) {
-                showPermissionSettingsDialog = true
-            }
         }
     }
     
@@ -385,51 +354,6 @@ fun PackageScreen(
         )
     }
 
-    if (showPermissionRationaleDialog) {
-        AlertDialog(
-            onDismissRequest = { showPermissionRationaleDialog = false },
-            title = { Text(stringResource(R.string.permission_required_title)) },
-            text = { Text(stringResource(R.string.permission_required_rationale)) },
-            confirmButton = {
-                Button(onClick = {
-                    showPermissionRationaleDialog = false
-                    permissionState.launchPermissionRequest()
-                }) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPermissionRationaleDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
-
-    if (showPermissionSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { showPermissionSettingsDialog = false },
-            title = { Text(stringResource(R.string.permission_required_title)) },
-            text = { Text(stringResource(R.string.permission_permanently_denied_message)) },
-            confirmButton = {
-                Button(onClick = {
-                    showPermissionSettingsDialog = false
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                    }
-                    context.startActivity(intent)
-                }) {
-                    Text(stringResource(R.string.open_settings))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPermissionSettingsDialog = false }) {
-                    Text(stringResource(R.string.not_now))
-                }
-            }
-        )
-    }
-
     if (showDeleteStickerDialog != null) {
         AlertDialog(
             onDismissRequest = { showDeleteStickerDialog = null },
@@ -601,14 +525,15 @@ fun PackageScreen(
                                         Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
                                         return@FloatingActionButton
                                     }
-                                    if (permissionState.status.isGranted) {
-                                        val mimeType = if (isAnimated) "video/*" else "image/*"
-                                        imagePickerLauncher.launch(mimeType)
-                                    } else if (permissionState.status.shouldShowRationale) {
-                                        showPermissionRationaleDialog = true
+                                    
+                                    // NO PERMISSION CHECK NEEDED HERE
+                                    // Just launch the Photo Picker
+                                    val mediaType = if (isAnimated) {
+                                        ActivityResultContracts.PickVisualMedia.VideoOnly
                                     } else {
-                                        permissionState.launchPermissionRequest()
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
                                     }
+                                    mediaPickerLauncher.launch(PickVisualMediaRequest(mediaType))
                                 },
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary

@@ -26,7 +26,7 @@ Aplicativo Android nativo para criação e gerenciamento de pacotes de figurinha
 ## Estrutura do Projeto
 
 ```
-com.example.wppsticker
+com.ricardudles.puresticker
 ├── data             # Definições de banco de dados (Room) e Modelos
 ├── di               # Configuração de injeção de dependência
 ├── nav              # Gráfico de navegação do Compose
@@ -41,8 +41,8 @@ com.example.wppsticker
 
 ## Privacidade e Permissões
 
-O aplicativo opera offline.
-*   **Permissões:** Utiliza `READ_MEDIA_IMAGES` para seleção de arquivos da galeria.
+O aplicativo opera offline e com privacidade máxima.
+*   **Acesso à Mídia:** Utiliza o **Android Photo Picker**. O aplicativo não solicita permissões de leitura de armazenamento (`READ_EXTERNAL_STORAGE` ou `READ_MEDIA_*`). O usuário seleciona apenas os arquivos específicos que deseja usar.
 *   **Integração:** Verifica a instalação do WhatsApp através de queries específicas no manifesto (`com.whatsapp`), sem uso da permissão ampla `QUERY_ALL_PACKAGES`.
 
 ## Execução
