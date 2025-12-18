@@ -141,6 +141,11 @@
     <string name="cleanup_complete_title">Cleanup Complete</string>
     <string name="cleanup_complete_desc">%1$d unused files were deleted, freeing up %2$s KB of space.</string>
 
+    <!-- Legal -->
+    <string name="about_app">About</string>
+    <string name="privacy_policy_menu">Privacy Policy</string>
+    <string name="privacy_policy_menu_desc">Read our terms and data usage</string>
+
     <!-- Restore Preview Screen -->
     <string name="restore_preview_title">Select Packs to Restore</string>
     <string name="restore_success_toast">Restore successful!</string>

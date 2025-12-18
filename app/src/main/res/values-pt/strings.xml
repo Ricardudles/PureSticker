@@ -141,6 +141,11 @@
     <string name="cleanup_complete_title">Limpeza Concluída</string>
     <string name="cleanup_complete_desc">%1$d arquivos não utilizados foram excluídos, liberando %2$s KB de espaço.</string>
 
+    <!-- Legal -->
+    <string name="about_app">Sobre</string>
+    <string name="privacy_policy_menu">Política de Privacidade</string>
+    <string name="privacy_policy_menu_desc">Leia nossos termos e uso de dados</string>
+
     <!-- Restore Preview Screen -->
     <string name="restore_preview_title">Selecionar Pacotes para Restaurar</string>
     <string name="restore_success_toast">Restauração bem-sucedida!</string>

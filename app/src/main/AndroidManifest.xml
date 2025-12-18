@@ -6,13 +6,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     
-    <!-- Permission to ensure we can see WhatsApp installed on the device (Android 11+) -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
-
+    <!-- WhatsApp Integration Queries -->
     <queries>
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
-        <!-- Correct action for WhatsApp Sticker Integration -->
         <intent>
             <action android:name="com.whatsapp.intent.action.ENABLE_STICKER_PACK" />
         </intent>

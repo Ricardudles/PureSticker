@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +66,7 @@ fun SettingsScreen(
 ) {
     val cleanupResult by viewModel.cleanupResult.collectAsState()
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
 
     LaunchedEffect(key1 = true) {
         viewModel.uiEvent.collect { event ->
@@ -165,6 +168,26 @@ fun SettingsScreen(
                 icon = Icons.Default.CleaningServices,
                 iconTint = MaterialTheme.colorScheme.error,
                 onClick = { viewModel.cleanOrphanFiles() }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                stringResource(R.string.about_app), 
+                style = MaterialTheme.typography.labelLarge, 
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+
+            SettingsItem(
+                title = stringResource(R.string.privacy_policy_menu),
+                description = stringResource(R.string.privacy_policy_menu_desc),
+                icon = Icons.Default.Info,
+                onClick = { 
+                    // ATENÇÃO: Substitua 'YourUsername' pelo seu usuário real do GitHub
+                    // A URL deve seguir o padrão: https://<username>.github.io/WppSticker/privacy-policy/
+                    uriHandler.openUri("https://YourUsername.github.io/WppSticker/privacy-policy/") 
+                }
             )
         }
     }
