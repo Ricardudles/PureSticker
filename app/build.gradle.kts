@@ -11,7 +11,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.wppsticker"
+        applicationId = "com.ricardudles.puresticker"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
