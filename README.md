@@ -4,15 +4,12 @@ Aplicativo Android nativo para criação e gerenciamento de pacotes de figurinha
 
 ## Funcionalidades Atuais
 
-*   **Criação de Pacotes:** Suporte para pacotes do tipo Estático (imagens) e Animado (vídeos/GIFs).
+*   **Criação de Pacotes:** Suporte completo para pacotes de Stickers Estáticos (imagens).
 *   **Integração WhatsApp:** Exportação direta dos pacotes para o aplicativo do WhatsApp via ContentProvider.
 *   **Editor de Imagens:**
     *   Adição e manipulação de textos.
     *   Remoção de fundo automática (Google ML Kit).
     *   Ferramentas de corte e alinhamento (snap-to-grid).
-*   **Editor de Vídeo:**
-    *   Corte temporal (Trim) e espacial (Crop).
-    *   Conversão e compressão de vídeo para formato WebP (compatível com WhatsApp) usando Media3 Transformer.
 *   **Armazenamento Local:** Todo o gerenciamento de dados é feito localmente usando Room Database.
 *   **Backup e Restauração:** Exportação e importação de pacotes completos via arquivos ZIP.
 *   **Limpeza:** Ferramenta para identificar e remover arquivos de mídia não utilizados no armazenamento interno.
@@ -24,7 +21,6 @@ Aplicativo Android nativo para criação e gerenciamento de pacotes de figurinha
 *   **Arquitetura:** MVVM
 *   **Injeção de Dependência:** Hilt
 *   **Persistência:** Room Database
-*   **Processamento de Mídia:** AndroidX Media3 (Transformer) & ExoPlayer
 *   **Processamento de Imagem:** ML Kit (Selfie Segmentation) & Coil
 
 ## Estrutura do Projeto
@@ -37,7 +33,6 @@ com.example.wppsticker
 ├── provider         # ContentProvider exposto para o WhatsApp
 ├── ui               # Telas e ViewModels
 │   ├── editor       # Lógica de edição de imagens estáticas
-│   ├── videoeditor  # Lógica de processamento de vídeo
 │   ├── home         # Listagem de pacotes
 │   ├── settings     # Configurações e Backup
 │   └── stickerpack  # Visualização e gerenciamento de stickers
@@ -47,9 +42,9 @@ com.example.wppsticker
 ## Privacidade e Permissões
 
 O aplicativo opera offline.
-*   **Permissões:** Utiliza `READ_MEDIA_IMAGES` e `READ_MEDIA_VIDEO` para seleção de arquivos.
+*   **Permissões:** Utiliza `READ_MEDIA_IMAGES` para seleção de arquivos da galeria.
 *   **Integração:** Verifica a instalação do WhatsApp através de queries específicas no manifesto (`com.whatsapp`), sem uso da permissão ampla `QUERY_ALL_PACKAGES`.
 
 ## Execução
 
-Requer Android Studio com suporte a Kotlin 2.0. As dependências de bibliotecas (Media3, ML Kit) são baixadas automaticamente via Gradle ao sincronizar o projeto.
+Requer Android Studio com suporte a Kotlin 2.0. As dependências de bibliotecas (ML Kit, Coil) são baixadas automaticamente via Gradle ao sincronizar o projeto.
