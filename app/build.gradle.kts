@@ -14,8 +14,8 @@ android {
         applicationId = "com.ricardudles.puresticker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2  // Changed from 1 to 2
+        versionName = "1.1" // Updated version name
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
