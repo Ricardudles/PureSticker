@@ -5,11 +5,8 @@
 -->
 <full-backup-content>
     <!-- Include files, databases, and shared prefs -->
+    <!-- Note: Cache files are automatically excluded by the OS -->
     <include domain="file" path="."/>
     <include domain="database" path="."/>
     <include domain="sharedpref" path="."/>
-    
-    <!-- Exclude cache and temp files -->
-    <exclude domain="cache" path="."/>
-    <exclude domain="code_cache" path="."/>
 </full-backup-content>
