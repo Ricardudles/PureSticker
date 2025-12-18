@@ -184,9 +184,7 @@ fun SettingsScreen(
                 description = stringResource(R.string.privacy_policy_menu_desc),
                 icon = Icons.Default.Info,
                 onClick = { 
-                    // ATENÇÃO: Substitua 'YourUsername' pelo seu usuário real do GitHub
-                    // A URL deve seguir o padrão: https://<username>.github.io/WppSticker/privacy-policy/
-                    uriHandler.openUri("https://YourUsername.github.io/WppSticker/privacy-policy/") 
+                    uriHandler.openUri("https://ricardudles.github.io/PureSticker/privacy-policy/") 
                 }
             )
         }
