@@ -235,7 +235,7 @@ fun EditorScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
                 .background(MaterialTheme.colorScheme.background) // Use Theme Background
         ) {
             // --- WORKSPACE (CENTER) ---
