@@ -2,6 +2,7 @@ package com.example.wppsticker.ui.editor
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
@@ -232,21 +233,21 @@ fun EditorScreen(
             )
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = padding.calculateTopPadding())
                 .background(MaterialTheme.colorScheme.background) // Use Theme Background
         ) {
-            // --- WORKSPACE (CENTER) ---
+            // --- WORKSPACE (TOP, takes remaining space) ---
             BoxWithConstraints(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 180.dp), // Reserve space for the Bottom Dock
+                    .weight(1f) // Takes all available space above the dock
+                    .fillMaxWidth()
+                    .animateContentSize(), // Smooth transition if dock height changes
                 contentAlignment = Alignment.Center
             ) {
-                // Use maxWidth/maxHeight directly. The linter might complain if we don't use 'constraints' explicitly,
-                // but minOf(maxWidth, maxHeight) is a valid usage of BoxWithConstraintsScope.
+                // Use maxWidth/maxHeight directly.
                 @Suppress("UnusedBoxWithConstraintsScope")
                 val workspaceSize = minOf(maxWidth, maxHeight) * 0.9f // Add some breathing room
                 val density = LocalDensity.current
@@ -384,7 +385,8 @@ fun EditorScreen(
 
             // --- BOTTOM DOCK ---
             Surface(
-                modifier = Modifier.align(Alignment.BottomCenter),
+                modifier = Modifier
+                    .fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surface, // Use Theme Surface
                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
                 shadowElevation = 16.dp
@@ -431,17 +433,17 @@ fun EditorScreen(
                     }
                 }
             }
+        }
             
-            if (isBusy) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.scrim)
-                        .clickable(enabled = true, onClick = {}), // Block interactions
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+        if (isBusy) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim)
+                    .clickable(enabled = true, onClick = {}), // Block interactions
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
         }
     }
