@@ -1,11 +1,9 @@
 package com.example.wppsticker.ui.home
 
-import android.Manifest
-import android.content.Intent
 import android.net.Uri
-import android.os.Build
-import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,8 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,7 +31,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -56,14 +51,10 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.wppsticker.R
 import com.example.wppsticker.nav.Screen
-import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
-import com.google.accompanist.permissions.shouldShowRationale
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StickerTypeSelectionScreen(navController: NavController) {
     val context = LocalContext.current
@@ -85,81 +76,27 @@ fun StickerTypeSelectionScreen(navController: NavController) {
         }
     }
 
-    val imageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            isAnimatedSelection = false
-            pickedUri = uri
+    // Photo Picker Launcher (No Permissions Required)
+    val mediaPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                pickedUri = uri
+            }
         }
-    }
-
-    val videoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            isAnimatedSelection = true
-            pickedUri = uri
-        }
-    }
-
-    val imagePermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
-    val videoPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_VIDEO else Manifest.permission.READ_EXTERNAL_STORAGE
-
-    var pendingPermissionRequest by remember { mutableStateOf<String?>(null) }
-    var showPermissionRationale by remember { mutableStateOf(false) }
-    var showPermissionSettings by remember { mutableStateOf(false) }
-
-    val imagePermissionState = rememberPermissionState(imagePermission) { isGranted ->
-        if (isGranted) imageLauncher.launch("image/*")
-        else if (!isGranted) showPermissionSettings = true
-    }
-
-    val videoPermissionState = rememberPermissionState(videoPermission) { isGranted ->
-        if (isGranted) videoLauncher.launch("video/*")
-        else if (!isGranted) showPermissionSettings = true
-    }
+    )
 
     fun onTypeSelected(isAnimated: Boolean) {
-        val state = if (isAnimated) videoPermissionState else imagePermissionState
-        if (state.status.isGranted) {
-            if (isAnimated) videoLauncher.launch("video/*") else imageLauncher.launch("image/*")
-        } else if (state.status.shouldShowRationale) {
-            pendingPermissionRequest = if (isAnimated) "video" else "image"
-            showPermissionRationale = true
+        isAnimatedSelection = isAnimated
+        
+        if (isAnimated) {
+             Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
         } else {
-            state.launchPermissionRequest()
+             // Just launch the picker
+             mediaPickerLauncher.launch(
+                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+             )
         }
-    }
-
-    if (showPermissionRationale) {
-        AlertDialog(
-            onDismissRequest = { showPermissionRationale = false },
-            title = { Text(stringResource(R.string.permission_required_title)) },
-            text = { Text(stringResource(R.string.permission_required_rationale)) },
-            confirmButton = {
-                Button(onClick = {
-                    showPermissionRationale = false
-                    if (pendingPermissionRequest == "video") videoPermissionState.launchPermissionRequest()
-                    else imagePermissionState.launchPermissionRequest()
-                }) { Text(stringResource(R.string.ok)) }
-            },
-            dismissButton = { TextButton(onClick = { showPermissionRationale = false }) { Text(stringResource(R.string.cancel)) } }
-        )
-    }
-
-    if (showPermissionSettings) {
-        AlertDialog(
-            onDismissRequest = { showPermissionSettings = false },
-            title = { Text(stringResource(R.string.permission_required_title)) },
-            text = { Text(stringResource(R.string.permission_permanently_denied_message)) },
-            confirmButton = {
-                Button(onClick = {
-                    showPermissionSettings = false
-                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", context.packageName, null)
-                    }
-                    context.startActivity(intent)
-                }) { Text(stringResource(R.string.open_settings)) }
-            },
-            dismissButton = { TextButton(onClick = { showPermissionSettings = false }) { Text(stringResource(R.string.not_now)) } }
-        )
     }
 
     Scaffold(
@@ -204,7 +141,7 @@ fun StickerTypeSelectionScreen(navController: NavController) {
                     icon = Icons.Default.Image,
                     title = stringResource(R.string.static_sticker),
                     subtitle = stringResource(R.string.static_sticker_desc),
-                    color = MaterialTheme.colorScheme.primary, // Used Theme Primary
+                    color = MaterialTheme.colorScheme.primary, 
                     modifier = Modifier.weight(1f),
                     onClick = { onTypeSelected(false) }
                 )
@@ -213,10 +150,10 @@ fun StickerTypeSelectionScreen(navController: NavController) {
                     icon = Icons.Default.Movie,
                     title = stringResource(R.string.animated_sticker),
                     subtitle = stringResource(R.string.coming_soon),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, // Used Surface Variant for disabled look
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
                     modifier = Modifier.weight(1f),
                     isEnabled = false,
-                    onClick = { /* onTypeSelected(true) */ }
+                    onClick = { onTypeSelected(true) }
                 )
             }
         }
@@ -238,7 +175,7 @@ fun TypeSelectionCard(
             .aspectRatio(0.8f)
             .clickable(enabled = isEnabled) { onClick() },
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant), // Replaced hardcoded color
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(
@@ -265,13 +202,13 @@ fun TypeSelectionCard(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) // Themed text color
+                color = if (isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) // Themed subtitle
+                color = if (isEnabled) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f) 
             )
         }
     }
