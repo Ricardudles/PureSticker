@@ -171,6 +171,11 @@
     <string name="invalid_url_error">O Website deve começar com http:// ou https://</string>
     <string name="limit_stickers_error">Este pacote atingiu o limite de 30 figurinhas.</string>
     <string name="emoji_required_error">Pelo menos um emoji é necessário.</string>
+    <string name="min_stickers_error">Um pacote de figurinhas precisa de pelo menos 3 figurinhas para ser adicionado ao WhatsApp.</string>
+    <string name="max_stickers_error">Um pacote de figurinhas não pode ter mais de 30 figurinhas.</string>
+    <string name="tray_icon_error">Um pacote de figurinhas precisa de um ícone de bandeja.</string>
+    <string name="package_already_added">Pacote já adicionado! O WhatsApp irá atualizá-lo automaticamente.</string>
+    <string name="package_updated_success">Pacote atualizado com sucesso</string>
     <string name="error_saving">Erro ao salvar figurinha: %1$s</string>
     <string name="error_loading_image">Erro ao carregar imagem da figurinha.</string>
     <string name="error_compression">Não foi possível comprimir a figurinha para menos de 100KB.</string>
@@ -194,4 +199,5 @@
     <string name="selected">Selecionado</string>
     <string name="sticker_preview">Pré-visualização</string>
     <string name="close">Fechar</string>
+    <string name="final_sticker_desc">Figurinha Final</string>
 </resources>

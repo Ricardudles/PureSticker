@@ -6,6 +6,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.wppsticker.R
 import com.example.wppsticker.data.local.StickerPackage
 import com.example.wppsticker.data.local.StickerPackageWithStickers
 import com.example.wppsticker.domain.repository.StickerRepository
@@ -100,18 +101,18 @@ class HomeViewModel @Inject constructor(
         // Check limits before sending
         if (stickerPackage.stickers.size < 3) {
             Log.w(TAG, "SendStickerPack: Failed. Not enough stickers (${stickerPackage.stickers.size})")
-            _uiEvents.emit("A sticker pack needs at least 3 stickers.")
+            _uiEvents.emit(context.getString(R.string.min_stickers_error))
             return@launch
         }
         if (stickerPackage.stickers.size > 30) {
             Log.w(TAG, "SendStickerPack: Failed. Too many stickers (${stickerPackage.stickers.size})")
-            _uiEvents.emit("A sticker pack cannot have more than 30 stickers.")
+            _uiEvents.emit(context.getString(R.string.max_stickers_error))
             return@launch
         }
 
         if (stickerPackage.stickerPackage.trayImageFile.isEmpty()) {
             Log.w(TAG, "SendStickerPack: Failed. No tray icon.")
-            _uiEvents.emit("A sticker pack needs a tray icon.")
+            _uiEvents.emit(context.getString(R.string.tray_icon_error))
             return@launch
         }
 
@@ -121,7 +122,7 @@ class HomeViewModel @Inject constructor(
         val isAdded = stickerRepository.isStickerPackageWhitelisted(identifier)
         if (isAdded) {
             Log.d(TAG, "SendStickerPack: Package already added to WhatsApp.")
-            _uiEvents.emit("Package already added! WhatsApp will update it automatically.")
+            _uiEvents.emit(context.getString(R.string.package_already_added))
             return@launch
         }
 

@@ -8,6 +8,7 @@ import android.util.Patterns
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.wppsticker.R
 import com.example.wppsticker.data.local.StickerPackageWithStickers
 import com.example.wppsticker.domain.repository.StickerRepository
 import com.example.wppsticker.domain.usecase.DeleteStickerUseCase
@@ -86,31 +87,31 @@ class PackageViewModel @Inject constructor(
         
         // --- VALIDATIONS ---
         if (name.isBlank()) {
-            _uiEvents.emit("Package Name is required.")
+            _uiEvents.emit(context.getString(R.string.pkg_name_required_error))
             return@launch
         }
         if (name.length > 128) {
-            _uiEvents.emit("Package Name is too long (max 128 chars).")
+            _uiEvents.emit(context.getString(R.string.pkg_name_too_long_error))
             return@launch
         }
         if (author.isBlank()) {
-            _uiEvents.emit("Author is required.")
+            _uiEvents.emit(context.getString(R.string.author_required_error))
             return@launch
         }
         if (author.length > 128) {
-             _uiEvents.emit("Author name is too long (max 128 chars).")
+             _uiEvents.emit(context.getString(R.string.author_too_long_error))
              return@launch
         }
         if (email.isNotEmpty() && !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _uiEvents.emit("Invalid Email address.")
+            _uiEvents.emit(context.getString(R.string.invalid_email_error))
             return@launch
         }
         if (website.isNotEmpty() && !isValidUrl(website)) {
-            _uiEvents.emit("Website must start with http:// or https://")
+            _uiEvents.emit(context.getString(R.string.invalid_url_error))
             return@launch
         }
         if (privacyPolicy.isNotEmpty() && !isValidUrl(privacyPolicy)) {
-            _uiEvents.emit("Privacy Policy must start with http:// or https://")
+            _uiEvents.emit(context.getString(R.string.invalid_url_error))
             return@launch
         }
     
@@ -133,7 +134,7 @@ class PackageViewModel @Inject constructor(
             )
             
             updateStickerPackageUseCase(updatedPackage)
-            _uiEvents.emit("Package updated successfully")
+            _uiEvents.emit(context.getString(R.string.package_updated_success))
         }
     }
 
@@ -145,16 +146,16 @@ class PackageViewModel @Inject constructor(
         
         // Check limits
         if (stickerPackage.stickers.size < 3) {
-            _uiEvents.emit("A sticker pack needs at least 3 stickers to be added to WhatsApp.")
+            _uiEvents.emit(context.getString(R.string.min_stickers_error))
             return@launch
         }
         if (stickerPackage.stickers.size > 30) {
-            _uiEvents.emit("A sticker pack cannot have more than 30 stickers.")
+            _uiEvents.emit(context.getString(R.string.max_stickers_error))
             return@launch
         }
 
         if (stickerPackage.stickerPackage.trayImageFile.isEmpty()) {
-             _uiEvents.emit("A sticker pack needs a tray icon (generated automatically when you create a sticker).")
+             _uiEvents.emit(context.getString(R.string.tray_icon_error))
             return@launch
         }
 
@@ -163,7 +164,7 @@ class PackageViewModel @Inject constructor(
         // Check whitelist
         val isAdded = stickerRepository.isStickerPackageWhitelisted(identifier)
         if (isAdded) {
-            _uiEvents.emit("Package already added! WhatsApp will update it automatically.")
+            _uiEvents.emit(context.getString(R.string.package_already_added))
              return@launch
         }
 

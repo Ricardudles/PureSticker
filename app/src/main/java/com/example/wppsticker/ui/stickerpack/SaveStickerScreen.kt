@@ -111,7 +111,7 @@ fun SaveStickerScreen(
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(viewModel.stickerUri).crossfade(true).build(),
-                        contentDescription = "Final Sticker",
+                        contentDescription = stringResource(R.string.final_sticker_desc),
                         modifier = Modifier.size(200.dp).padding(16.dp),
                         contentScale = ContentScale.Fit
                     )

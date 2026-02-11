@@ -1,8 +1,8 @@
 package com.example.wppsticker.ui.editor
 
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
@@ -20,16 +20,18 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -90,6 +92,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -209,7 +212,7 @@ fun EditorScreen(
                     IconButton(onClick = { viewModel.undo() }, enabled = canUndo && !isBusy) {
                          Icon(
                              Icons.AutoMirrored.Filled.Undo, 
-                             contentDescription = "Undo",
+                             contentDescription = stringResource(R.string.undo),
                              tint = if (canUndo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                          )
                     }
@@ -218,7 +221,7 @@ fun EditorScreen(
                     IconButton(onClick = { viewModel.redo() }, enabled = canRedo && !isBusy) {
                          Icon(
                              Icons.AutoMirrored.Filled.Redo, 
-                             contentDescription = "Redo",
+                             contentDescription = stringResource(R.string.redo),
                              tint = if (canRedo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                          )
                     }
@@ -233,203 +236,227 @@ fun EditorScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding())
-                .background(MaterialTheme.colorScheme.background) // Use Theme Background
-        ) {
-            // --- WORKSPACE (TOP, takes remaining space) ---
-            BoxWithConstraints(
-                modifier = Modifier
-                    .weight(1f) // Takes all available space above the dock
-                    .fillMaxWidth()
-                    .animateContentSize(), // Smooth transition if dock height changes
-                contentAlignment = Alignment.Center
-            ) {
-                // Use maxWidth/maxHeight directly.
-                @Suppress("UnusedBoxWithConstraintsScope")
-                val workspaceSize = minOf(maxWidth, maxHeight) * 0.9f // Add some breathing room
-                val density = LocalDensity.current
-                
-                val canvasSize = 512f
-                val scaleToCanvas = remember(workspaceSize) { canvasSize / with(density) { workspaceSize.toPx() } }
-                val scaleFromCanvas = remember(workspaceSize) { with(density) { workspaceSize.toPx() } / canvasSize }
-                val textFontSize = remember(workspaceSize) {
-                    with(density) { (32f * scaleFromCanvas).toSp() }
-                }
+        val configuration = LocalConfiguration.current
+        val currentScreenHeight = configuration.screenHeightDp.dp
+        
+        // Use a persistent max height to ignore shrinking caused by adjustResize (IME)
+        // This ensures the layout remains stable (e.g. 800dp) even if window reports 400dp momentarily
+        var stableScreenHeight by remember(configuration.orientation) { mutableStateOf(0.dp) }
+        if (currentScreenHeight > stableScreenHeight) {
+            stableScreenHeight = currentScreenHeight
+        }
+        
+        // Fallback if stableHeight hasn't been initialized yet
+        val targetHeight = if (stableScreenHeight > 0.dp) stableScreenHeight else currentScreenHeight
 
-                // The 512x512 Representation
+        // Root Container with Fixed Height to ignore IME resizing
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .requiredHeight(targetHeight) // Locks the height to the max known screen size
+                .padding(top = padding.calculateTopPadding()) // Pushes content down by TopBar height
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // --- WORKSPACE (TOP, takes remaining space) ---
                 Box(
                     modifier = Modifier
-                        .size(workspaceSize)
-                        .aspectRatio(1f)
-                        .background(Color.Transparent)
-                        .clipToBounds() 
+                        .weight(1f) // Takes all available space above the dock
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Checkerboard Background (Transparency Indicator)
-                    val checkerColor1 = MaterialTheme.colorScheme.outline
-                    val checkerColor2 = MaterialTheme.colorScheme.surface
+                    val density = LocalDensity.current
+                    val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+                    val screenWidth = configuration.screenWidthDp.dp
                     
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val checkerSize = 20.dp.toPx() // Checker size
-                        val rows = (size.height / checkerSize).toInt() + 1
-                        val cols = (size.width / checkerSize).toInt() + 1
-                        
-                        for (row in 0 until rows) {
-                            for (col in 0 until cols) {
-                                val color = if ((row + col) % 2 == 0) checkerColor1 else checkerColor2
-                                drawRect(
-                                    color = color,
-                                    topLeft = Offset(col * checkerSize, row * checkerSize),
-                                    size = Size(checkerSize, checkerSize)
-                                )
-                            }
-                        }
+                    // Use stable screen width for workspace size
+                    val workspaceSize = if (isPortrait) {
+                        screenWidth * 0.9f 
+                    } else {
+                        minOf(screenWidth, targetHeight) * 0.9f
+                    }
+                    
+                    val canvasSize = 512f
+                    val scaleToCanvas = remember(workspaceSize) { canvasSize / with(density) { workspaceSize.toPx() } }
+                    val scaleFromCanvas = remember(workspaceSize) { with(density) { workspaceSize.toPx() } / canvasSize }
+                    val textFontSize = remember(workspaceSize) {
+                        with(density) { (32f * scaleFromCanvas).toSp() }
                     }
 
-                    // Guide Border
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawRect(
-                            color = Color.White.copy(alpha = 0.3f),
-                            style = Stroke(
-                                width = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 20f), 0f)
-                            )
-                        )
-                    }
-
-                    // Image Layer
+                    // The 512x512 Representation
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(Unit) {
-                                if (!isBusy) detectTapGestures { viewModel.onTextSelected(null) }
-                            }
-                            .pointerInput(Unit) {
-                                if (!isBusy) {
-                                    detectTransformGestures { _, pan, zoom, rotation ->
-                                        // Signal start of gesture (will only trigger undo save once per sequence)
-                                        viewModel.onGestureStart()
-                                        
-                                        if (viewModel.selectedTextId.value == null) {
-                                            val canvasPan = pan * scaleToCanvas
-                                            viewModel.updateImageState(offset = canvasPan, scale = zoom, rotation = rotation)
-                                        }
-                                    }
+                            .size(workspaceSize)
+                            .aspectRatio(1f)
+                            .background(Color.Transparent)
+                            .clipToBounds() 
+                    ) {
+                        // Checkerboard Background (Transparency Indicator)
+                        val checkerColor1 = MaterialTheme.colorScheme.outline
+                        val checkerColor2 = MaterialTheme.colorScheme.surface
+                        
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val checkerSize = 20.dp.toPx() // Checker size
+                            val rows = (size.height / checkerSize).toInt() + 1
+                            val cols = (size.width / checkerSize).toInt() + 1
+                            
+                            for (row in 0 until rows) {
+                                for (col in 0 until cols) {
+                                    val color = if ((row + col) % 2 == 0) checkerColor1 else checkerColor2
+                                    drawRect(
+                                        color = color,
+                                        topLeft = Offset(col * checkerSize, row * checkerSize),
+                                        size = Size(checkerSize, checkerSize)
+                                    )
                                 }
                             }
-                    ) {
-                        imageUri?.let { uri ->
-                            AsyncImage(
-                                model = uri,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        scaleX = imageState.scale
-                                        scaleY = imageState.scale
-                                        rotationZ = imageState.rotation
-                                        translationX = imageState.offset.x * scaleFromCanvas
-                                        translationY = imageState.offset.y * scaleFromCanvas
-                                    }
+                        }
+
+                        // Guide Border
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawRect(
+                                color = Color.White.copy(alpha = 0.3f),
+                                style = Stroke(
+                                    width = 2.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 20f), 0f)
+                                )
                             )
                         }
-                    }
 
-                    // Text Layer
-                    texts.forEach { textData ->
-                        key(textData.id) {
-                            val isSelected = textData.id == selectedTextId
-                            val borderModifier = if (isSelected) {
-                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
-                            } else {
-                                Modifier
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .graphicsLayer {
-                                        scaleX = textData.scale
-                                        scaleY = textData.scale
-                                        rotationZ = textData.rotation
-                                        translationX = textData.offset.x * scaleFromCanvas
-                                        translationY = textData.offset.y * scaleFromCanvas
-                                    }
-                                    .then(borderModifier)
-                                    .pointerInput(textData.id) {
-                                        if (!isBusy) detectTapGestures { viewModel.onTextSelected(textData.id) }
-                                    }
-                                    .pointerInput(textData.id, isSelected) {
-                                        if (isSelected && !isBusy) {
-                                            detectTransformGestures { _, pan, zoom, rotation ->
-                                                viewModel.onGestureStart()
+                        // Image Layer
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    if (!isBusy) detectTapGestures { viewModel.onTextSelected(null) }
+                                }
+                                .pointerInput(Unit) {
+                                    if (!isBusy) {
+                                        detectTransformGestures { _, pan, zoom, rotation ->
+                                            // Signal start of gesture (will only trigger undo save once per sequence)
+                                            viewModel.onGestureStart()
+                                            
+                                            if (viewModel.selectedTextId.value == null) {
                                                 val canvasPan = pan * scaleToCanvas
-                                                viewModel.updateSelectedText(offset = canvasPan, scale = zoom, rotation = rotation)
+                                                viewModel.updateImageState(offset = canvasPan, scale = zoom, rotation = rotation)
                                             }
                                         }
                                     }
-                            ) {
-                                StickerTextDisplay(
-                                    text = textData.text,
-                                    color = textData.color,
-                                    fontSize = textFontSize,
-                                    fontIndex = textData.fontIndex
+                                }
+                        ) {
+                            imageUri?.let { uri ->
+                                AsyncImage(
+                                    model = uri,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            scaleX = imageState.scale
+                                            scaleY = imageState.scale
+                                            rotationZ = imageState.rotation
+                                            translationX = imageState.offset.x * scaleFromCanvas
+                                            translationY = imageState.offset.y * scaleFromCanvas
+                                        }
                                 )
+                            }
+                        }
+
+                        // Text Layer
+                        texts.forEach { textData ->
+                            key(textData.id) {
+                                val isSelected = textData.id == selectedTextId
+                                val borderModifier = if (isSelected) {
+                                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(4.dp))
+                                } else {
+                                    Modifier
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .graphicsLayer {
+                                            scaleX = textData.scale
+                                            scaleY = textData.scale
+                                            rotationZ = textData.rotation
+                                            translationX = textData.offset.x * scaleFromCanvas
+                                            translationY = textData.offset.y * scaleFromCanvas
+                                        }
+                                        .then(borderModifier)
+                                        .pointerInput(textData.id) {
+                                            if (!isBusy) detectTapGestures { viewModel.onTextSelected(textData.id) }
+                                        }
+                                        .pointerInput(textData.id, isSelected) {
+                                            if (isSelected && !isBusy) {
+                                                detectTransformGestures { _, pan, zoom, rotation ->
+                                                    viewModel.onGestureStart()
+                                                    val canvasPan = pan * scaleToCanvas
+                                                    viewModel.updateSelectedText(offset = canvasPan, scale = zoom, rotation = rotation)
+                                                }
+                                            }
+                                        }
+                                ) {
+                                    StickerTextDisplay(
+                                        text = textData.text,
+                                        color = textData.color,
+                                        fontSize = textFontSize,
+                                        fontIndex = textData.fontIndex
+                                    )
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // --- BOTTOM DOCK ---
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface, // Use Theme Surface
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                shadowElevation = 16.dp
-            ) {
-                Column(
+                // --- BOTTOM DOCK ---
+                Surface(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding() // Use Safe Area
-                        .padding(16.dp)
-                        .padding(bottom = 8.dp) 
+                        .fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface, // Use Theme Surface
+                    shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                    shadowElevation = 16.dp
                 ) {
-                    val selectedText = texts.find { it.id == selectedTextId }
-
-                    AnimatedVisibility(
-                        visible = selectedText != null,
-                        enter = slideInVertically { it } + fadeIn(),
-                        exit = slideOutVertically { it } + fadeOut()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding() // Use Safe Area
+                            .padding(16.dp)
+                            .padding(bottom = 8.dp) 
                     ) {
-                        if (selectedText != null) {
-                            TextEditorPanel(
-                                textData = selectedText,
-                                onFontChange = { viewModel.updateSelectedTextFont(it) },
-                                onColorChange = { viewModel.updateSelectedTextColor(it) },
-                                onScaleChange = { viewModel.setTextScale(it) },
-                                onDelete = { viewModel.deleteSelectedText() },
-                                onDone = { viewModel.onTextSelected(null) }
+                        val selectedText = texts.find { it.id == selectedTextId }
+
+                        AnimatedVisibility(
+                            visible = selectedText != null,
+                            enter = slideInVertically { it } + fadeIn(),
+                            exit = slideOutVertically { it } + fadeOut()
+                        ) {
+                            if (selectedText != null) {
+                                TextEditorPanel(
+                                    textData = selectedText,
+                                    onFontChange = { viewModel.updateSelectedTextFont(it) },
+                                    onColorChange = { viewModel.updateSelectedTextColor(it) },
+                                    onScaleChange = { viewModel.setTextScale(it) },
+                                    onDelete = { viewModel.deleteSelectedText() },
+                                    onDone = { viewModel.onTextSelected(null) }
+                                )
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = selectedText == null,
+                            enter = slideInVertically { it } + fadeIn(),
+                            exit = slideOutVertically { it } + fadeOut()
+                        ) {
+                            MainToolsPanel(
+                                isSnapEnabled = isSnapEnabled,
+                                snapStrength = snapStrength,
+                                onAddText = { viewModel.showTextDialog(true) },
+                                onToggleSnap = { viewModel.toggleSnap(it) },
+                                onChangeSnapStrength = { viewModel.setSnapStrength(it) },
+                                onRemoveBackground = { viewModel.removeBackground() }
                             )
                         }
-                    }
-
-                    AnimatedVisibility(
-                        visible = selectedText == null,
-                        enter = slideInVertically { it } + fadeIn(),
-                        exit = slideOutVertically { it } + fadeOut()
-                    ) {
-                        MainToolsPanel(
-                            isSnapEnabled = isSnapEnabled,
-                            snapStrength = snapStrength,
-                            onAddText = { viewModel.showTextDialog(true) },
-                            onToggleSnap = { viewModel.toggleSnap(it) },
-                            onChangeSnapStrength = { viewModel.setSnapStrength(it) },
-                            onRemoveBackground = { viewModel.removeBackground() }
-                        )
                     }
                 }
             }

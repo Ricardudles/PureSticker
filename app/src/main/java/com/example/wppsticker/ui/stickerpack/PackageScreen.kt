@@ -255,7 +255,7 @@ fun PackageScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Advanced Options (Optional)", color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.advanced_options_optional), color = MaterialTheme.colorScheme.primary)
                         Icon(
                             if (showAdvanced) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = null,
@@ -274,7 +274,7 @@ fun PackageScreen(
                                 label = { Text(stringResource(R.string.email)) },
                                 singleLine = true,
                                 isError = emailError,
-                                supportingText = if (emailError) { { Text("Invalid email format") } } else null,
+                                supportingText = if (emailError) { { Text(stringResource(R.string.invalid_email_format)) } } else null,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                                 modifier = Modifier.fillMaxWidth()
                             )
