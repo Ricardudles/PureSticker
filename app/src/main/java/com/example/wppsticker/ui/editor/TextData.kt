@@ -12,7 +12,9 @@ data class TextData(
     val scale: Float = 1f,
     val rotation: Float = 0f,
     val color: Color = Color.White,
-    val fontIndex: Int = 0 // 0: Default, 1: Serif, 2: Mono, 3: Cursive, etc.
+    val fontIndex: Int = 0, // 0: Default, 1: Serif, 2: Mono, 3: Cursive, etc.
+    val strokeColor: Color = Color.Black,
+    val strokeWidth: Float = 0f // 0f means no stroke
 ) {
     fun getBoundingBox(fontSize: Float): Rect {
         val estimatedWidth = text.length * fontSize * 0.6f

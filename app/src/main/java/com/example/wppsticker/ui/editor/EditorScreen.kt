@@ -48,6 +48,7 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FormatPaint
 import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Grid3x3
 import androidx.compose.material.icons.filled.GridOff
@@ -123,7 +124,7 @@ fun EditorScreen(
     val snapStrength by viewModel.snapStrength.collectAsState()
     val canUndo by viewModel.canUndo.collectAsState()
     val canRedo by viewModel.canRedo.collectAsState()
-    
+
     var showExitDialog by remember { mutableStateOf(false) }
 
     // Intercept Back Button
@@ -160,32 +161,32 @@ fun EditorScreen(
     if (showTextDialog) {
         var textInput by remember { mutableStateOf("") }
         val focusRequester = remember { FocusRequester() }
-        
+
         LaunchedEffect(Unit) {
             focusRequester.requestFocus()
         }
-        
+
         AlertDialog(
             onDismissRequest = { viewModel.showTextDialog(false) },
             title = { Text(stringResource(R.string.new_text_title)) },
-            text = { 
+            text = {
                 OutlinedTextField(
-                    value = textInput, 
+                    value = textInput,
                     onValueChange = { textInput = it },
                     placeholder = { Text(stringResource(R.string.type_here_placeholder)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { 
-                        if (textInput.isNotBlank()) viewModel.addText(textInput) 
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (textInput.isNotBlank()) viewModel.addText(textInput)
                     }),
                     modifier = Modifier.fillMaxWidth().focusRequester(focusRequester)
-                ) 
+                )
             },
-            confirmButton = { 
+            confirmButton = {
                 Button(
                     onClick = { viewModel.addText(textInput) },
                     enabled = textInput.isNotBlank()
-                ) { Text(stringResource(R.string.add)) } 
+                ) { Text(stringResource(R.string.add)) }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.showTextDialog(false) }) { Text(stringResource(R.string.cancel)) }
@@ -211,21 +212,21 @@ fun EditorScreen(
                     // Undo Button
                     IconButton(onClick = { viewModel.undo() }, enabled = canUndo && !isBusy) {
                          Icon(
-                             Icons.AutoMirrored.Filled.Undo, 
+                             Icons.AutoMirrored.Filled.Undo,
                              contentDescription = stringResource(R.string.undo),
                              tint = if (canUndo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                          )
                     }
-                    
+
                     // Redo Button
                     IconButton(onClick = { viewModel.redo() }, enabled = canRedo && !isBusy) {
                          Icon(
-                             Icons.AutoMirrored.Filled.Redo, 
+                             Icons.AutoMirrored.Filled.Redo,
                              contentDescription = stringResource(R.string.redo),
                              tint = if (canRedo && !isBusy) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                          )
                     }
-                    
+
                     // "Next" Button
                     TextButton(onClick = { viewModel.onSaveAndContinue() }, enabled = !isBusy) {
                         Text(stringResource(R.string.next), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -238,14 +239,14 @@ fun EditorScreen(
     ) { padding ->
         val configuration = LocalConfiguration.current
         val currentScreenHeight = configuration.screenHeightDp.dp
-        
+
         // Use a persistent max height to ignore shrinking caused by adjustResize (IME)
         // This ensures the layout remains stable (e.g. 800dp) even if window reports 400dp momentarily
         var stableScreenHeight by remember(configuration.orientation) { mutableStateOf(0.dp) }
         if (currentScreenHeight > stableScreenHeight) {
             stableScreenHeight = currentScreenHeight
         }
-        
+
         // Fallback if stableHeight hasn't been initialized yet
         val targetHeight = if (stableScreenHeight > 0.dp) stableScreenHeight else currentScreenHeight
 
@@ -270,14 +271,14 @@ fun EditorScreen(
                     val density = LocalDensity.current
                     val isPortrait = configuration.orientation == Configuration.ORIENTATION_PORTRAIT
                     val screenWidth = configuration.screenWidthDp.dp
-                    
+
                     // Use stable screen width for workspace size
                     val workspaceSize = if (isPortrait) {
-                        screenWidth * 0.9f 
+                        screenWidth * 0.9f
                     } else {
                         minOf(screenWidth, targetHeight) * 0.9f
                     }
-                    
+
                     val canvasSize = 512f
                     val scaleToCanvas = remember(workspaceSize) { canvasSize / with(density) { workspaceSize.toPx() } }
                     val scaleFromCanvas = remember(workspaceSize) { with(density) { workspaceSize.toPx() } / canvasSize }
@@ -291,17 +292,17 @@ fun EditorScreen(
                             .size(workspaceSize)
                             .aspectRatio(1f)
                             .background(Color.Transparent)
-                            .clipToBounds() 
+                            .clipToBounds()
                     ) {
                         // Checkerboard Background (Transparency Indicator)
                         val checkerColor1 = MaterialTheme.colorScheme.outline
                         val checkerColor2 = MaterialTheme.colorScheme.surface
-                        
+
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val checkerSize = 20.dp.toPx() // Checker size
                             val rows = (size.height / checkerSize).toInt() + 1
                             val cols = (size.width / checkerSize).toInt() + 1
-                            
+
                             for (row in 0 until rows) {
                                 for (col in 0 until cols) {
                                     val color = if ((row + col) % 2 == 0) checkerColor1 else checkerColor2
@@ -337,7 +338,7 @@ fun EditorScreen(
                                         detectTransformGestures { _, pan, zoom, rotation ->
                                             // Signal start of gesture (will only trigger undo save once per sequence)
                                             viewModel.onGestureStart()
-                                            
+
                                             if (viewModel.selectedTextId.value == null) {
                                                 val canvasPan = pan * scaleToCanvas
                                                 viewModel.updateImageState(offset = canvasPan, scale = zoom, rotation = rotation)
@@ -401,7 +402,9 @@ fun EditorScreen(
                                         text = textData.text,
                                         color = textData.color,
                                         fontSize = textFontSize,
-                                        fontIndex = textData.fontIndex
+                                        fontIndex = textData.fontIndex,
+                                        strokeColor = textData.strokeColor,
+                                        strokeWidth = textData.strokeWidth
                                     )
                                 }
                             }
@@ -422,7 +425,7 @@ fun EditorScreen(
                             .fillMaxWidth()
                             .navigationBarsPadding() // Use Safe Area
                             .padding(16.dp)
-                            .padding(bottom = 8.dp) 
+                            .padding(bottom = 8.dp)
                     ) {
                         val selectedText = texts.find { it.id == selectedTextId }
 
@@ -438,7 +441,8 @@ fun EditorScreen(
                                     onColorChange = { viewModel.updateSelectedTextColor(it) },
                                     onScaleChange = { viewModel.setTextScale(it) },
                                     onDelete = { viewModel.deleteSelectedText() },
-                                    onDone = { viewModel.onTextSelected(null) }
+                                    onDone = { viewModel.onTextSelected(null) },
+                                    onToggleStroke = { viewModel.toggleTextStroke() }
                                 )
                             }
                         }
@@ -461,7 +465,7 @@ fun EditorScreen(
                 }
             }
         }
-            
+
         if (isBusy) {
             Box(
                 modifier = Modifier
@@ -486,7 +490,7 @@ fun MainToolsPanel(
     onRemoveBackground: () -> Unit
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        
+
         // Magnet Strength Indicator (Only if enabled)
         AnimatedVisibility(
             visible = isSnapEnabled,
@@ -515,7 +519,7 @@ fun MainToolsPanel(
                                 .size(if (isCurrent) 16.dp else 12.dp) // Highlight current
                                 .clip(CircleShape)
                                 .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primary 
+                                    if (isSelected) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.surfaceVariant
                                 )
                                 .clickable { onChangeSnapStrength(level) }
@@ -536,13 +540,13 @@ fun MainToolsPanel(
                 label = stringResource(R.string.add_text),
                 onClick = onAddText
             )
-            
+
             ToolButton(
                 icon = Icons.Default.AutoFixHigh,
                 label = stringResource(R.string.remove_background),
                 onClick = onRemoveBackground
             )
-            
+
             ToolButton(
                 icon = if (isSnapEnabled) Icons.Default.Grid3x3 else Icons.Default.GridOff,
                 label = stringResource(R.string.magnet),
@@ -560,7 +564,8 @@ fun TextEditorPanel(
     onColorChange: (Color) -> Unit,
     onScaleChange: (Float) -> Unit,
     onDelete: () -> Unit,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    onToggleStroke: () -> Unit
 ) {
     Column {
         // Header with Done Button
@@ -570,7 +575,7 @@ fun TextEditorPanel(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(stringResource(R.string.customize_text), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
-            
+
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Delete Button
                 IconButton(
@@ -598,13 +603,13 @@ fun TextEditorPanel(
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(listOf(0, 1, 2, 3, 4)) { index ->
                 FontSelectorItem(
-                    index = index, 
+                    index = index,
                     isSelected = textData.fontIndex == index,
                     onClick = { onFontChange(index) }
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
 
         // Size Slider
@@ -621,6 +626,18 @@ fun TextEditorPanel(
                 ),
                 modifier = Modifier.weight(1f)
             )
+
+            // Outline Toggle Button
+            Spacer(modifier = Modifier.width(16.dp))
+            IconButton(
+                onClick = onToggleStroke,
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = if (textData.strokeWidth > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = if (textData.strokeWidth > 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            ) {
+                Icon(Icons.Default.FormatPaint, contentDescription = "Outline")
+            }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -671,7 +688,14 @@ fun ToolButton(
 }
 
 @Composable
-fun StickerTextDisplay(text: String, color: Color, fontSize: TextUnit, fontIndex: Int) {
+fun StickerTextDisplay(
+    text: String,
+    color: Color,
+    fontSize: TextUnit,
+    fontIndex: Int,
+    strokeColor: Color = Color.Black,
+    strokeWidth: Float = 0f
+) {
     val fontFamily = when(fontIndex) {
         1 -> FontFamily.Serif
         2 -> FontFamily.Monospace
@@ -681,16 +705,40 @@ fun StickerTextDisplay(text: String, color: Color, fontSize: TextUnit, fontIndex
     val fontWeight = if (fontIndex == 4) FontWeight.Bold else FontWeight.Normal
     val fontStyle = if (fontIndex == 3) FontStyle.Italic else FontStyle.Normal
 
-    Text(
-        text = text,
-        color = color,
-        fontSize = fontSize,
-        fontFamily = fontFamily,
-        fontWeight = fontWeight,
-        fontStyle = fontStyle,
-        modifier = Modifier.padding(4.dp),
-        lineHeight = fontSize
-    )
+    Box {
+        // Stroke Layer (Drawn behind if strokeWidth > 0)
+        if (strokeWidth > 0) {
+            Text(
+                text = text,
+                color = strokeColor,
+                fontSize = fontSize,
+                fontFamily = fontFamily,
+                fontWeight = fontWeight,
+                fontStyle = fontStyle,
+                modifier = Modifier.padding(4.dp),
+                style = androidx.compose.ui.text.TextStyle.Default.copy(
+                    drawStyle = Stroke(
+                        miter = 10f,
+                        width = strokeWidth * 20f, // Scale factor for visual match with Canvas
+                        join = androidx.compose.ui.graphics.StrokeJoin.Round
+                    )
+                ),
+                lineHeight = fontSize
+            )
+        }
+
+        // Main Text Layer
+        Text(
+            text = text,
+            color = color,
+            fontSize = fontSize,
+            fontFamily = fontFamily,
+            fontWeight = fontWeight,
+            fontStyle = fontStyle,
+            modifier = Modifier.padding(4.dp),
+            lineHeight = fontSize
+        )
+    }
 }
 
 @Composable
@@ -705,7 +753,7 @@ fun FontSelectorItem(index: Int, isSelected: Boolean, onClick: () -> Unit) {
     }
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
     val textColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    
+
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp)) // Softer corners

@@ -60,20 +60,20 @@ class EditorViewModel @Inject constructor(
 
     private val _navigateToSave = MutableStateFlow<String?>(null)
     val navigateToSave: StateFlow<String?> = _navigateToSave.asStateFlow()
-    
+
     private val _isSnapEnabled = MutableStateFlow(true)
     val isSnapEnabled: StateFlow<Boolean> = _isSnapEnabled.asStateFlow()
-    
+
     private val _snapStrength = MutableStateFlow(3) // Default Level 3
     val snapStrength: StateFlow<Int> = _snapStrength.asStateFlow()
 
     // Undo/Redo Stacks
     private val undoStack = Stack<EditorState>()
     private val redoStack = Stack<EditorState>()
-    
+
     private val _canUndo = MutableStateFlow(false)
     val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
-    
+
     private val _canRedo = MutableStateFlow(false)
     val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
 
@@ -83,7 +83,7 @@ class EditorViewModel @Inject constructor(
     private var rawOffset = Offset.Zero
     private var rawScale = 1f
     private var rawRotation = 0f
-    
+
     // Image dimensions for edge snapping
     private var imageWidth = 0
     private var imageHeight = 0
@@ -98,7 +98,7 @@ class EditorViewModel @Inject constructor(
     }
 
     // --- Undo/Redo Logic ---
-    
+
     private fun pushToUndoStack() {
         val currentState = EditorState(
             imageState = _imageState.value,
@@ -109,12 +109,12 @@ class EditorViewModel @Inject constructor(
         redoStack.clear()
         updateUndoRedoState()
     }
-    
+
     private fun updateUndoRedoState() {
         _canUndo.value = undoStack.isNotEmpty()
         _canRedo.value = redoStack.isNotEmpty()
     }
-    
+
     fun undo() {
         if (undoStack.isNotEmpty()) {
             // Save current state to redo stack first
@@ -124,14 +124,14 @@ class EditorViewModel @Inject constructor(
                 imageUri = _imageUri.value
             )
             redoStack.push(currentState)
-            
+
             // Restore from undo stack
             val previousState = undoStack.pop()
             restoreState(previousState)
             updateUndoRedoState()
         }
     }
-    
+
     fun redo() {
         if (redoStack.isNotEmpty()) {
             // Save current state to undo stack
@@ -141,14 +141,14 @@ class EditorViewModel @Inject constructor(
                 imageUri = _imageUri.value
             )
             undoStack.push(currentState)
-            
+
             // Restore from redo stack
             val nextState = redoStack.pop()
             restoreState(nextState)
             updateUndoRedoState()
         }
     }
-    
+
     private fun restoreState(state: EditorState) {
         // Restore URI if it changed (e.g. background removal undo)
         if (state.imageUri != null && state.imageUri != _imageUri.value) {
@@ -158,17 +158,17 @@ class EditorViewModel @Inject constructor(
 
         _imageState.value = state.imageState
         _texts.value = state.texts
-        
+
         // Also restore raw values to prevent snap glitches when modifying again
         rawOffset = state.imageState.offset
         rawScale = state.imageState.scale
         rawRotation = state.imageState.rotation
     }
-    
+
     fun toggleSnap(enabled: Boolean) {
         _isSnapEnabled.value = enabled
     }
-    
+
     fun setSnapStrength(level: Int) {
         _snapStrength.value = level.coerceIn(1, 5)
     }
@@ -176,25 +176,25 @@ class EditorViewModel @Inject constructor(
     fun onImageCropped(uri: Uri) {
         // Pushes state BEFORE the change
         pushToUndoStack()
-        
+
         _imageUri.value = uri
         // Reset state on new image (or keep? usually keep if it's just bg removal)
-        // If it's a crop, usually we reset or adjust. 
-        // For BG removal, we probably want to keep scale/rotation if possible, 
+        // If it's a crop, usually we reset or adjust.
+        // For BG removal, we probably want to keep scale/rotation if possible,
         // but reset helps avoid visual glitches if dimensions changed drastically.
         _imageState.value = ImageState()
         rawOffset = Offset.Zero
         rawScale = 1f
         rawRotation = 0f
-        
+
         loadImageDimensions(uri)
     }
-    
+
     private fun loadImageDimensions(uri: Uri) {
         viewModelScope.launch {
             val request = ImageRequest.Builder(context).data(uri).build()
             val result = context.imageLoader.execute(request)
-            result.drawable?.let { 
+            result.drawable?.let {
                  imageWidth = it.intrinsicWidth
                  imageHeight = it.intrinsicHeight
             }
@@ -203,12 +203,15 @@ class EditorViewModel @Inject constructor(
 
     fun addText(text: String) {
         pushToUndoStack()
-        val newText = TextData(text = text)
+        val newText = TextData(
+            text = text,
+            strokeWidth = 2f // Default stroke for visibility
+        )
         _texts.update { it + newText }
         _selectedTextId.value = newText.id
         _showTextDialog.value = false
     }
-    
+
     fun deleteSelectedText() {
         val id = _selectedTextId.value ?: return
         pushToUndoStack()
@@ -229,7 +232,19 @@ class EditorViewModel @Inject constructor(
             }
         }
     }
-    
+
+    fun toggleTextStroke() {
+        pushToUndoStack()
+        _texts.update { texts ->
+            texts.map {
+                if (it.id == _selectedTextId.value) {
+                    val newStroke = if (it.strokeWidth > 0) 0f else 2f
+                    it.copy(strokeWidth = newStroke)
+                } else { it }
+            }
+        }
+    }
+
     fun updateSelectedTextFont(fontIndex: Int) {
         pushToUndoStack()
         _texts.update { texts ->
@@ -262,7 +277,7 @@ class EditorViewModel @Inject constructor(
                 if (it.id == _selectedTextId.value) {
                     var newScale = it.scale * (scale ?: 1f)
                     newScale = newScale.coerceIn(0.1f, 10f)
-                    
+
                     it.copy(
                         offset = it.offset + (offset ?: Offset.Zero),
                         scale = newScale,
@@ -272,7 +287,7 @@ class EditorViewModel @Inject constructor(
             }
         }
     }
-    
+
     fun setTextScale(scale: Float) {
         _texts.update { texts ->
             texts.map {
@@ -286,16 +301,16 @@ class EditorViewModel @Inject constructor(
     // Updates the background image transformation.
     fun updateImageState(offset: Offset? = null, scale: Float? = null, rotation: Float? = null) {
         // We rely on onGestureStart to push state before this stream of updates
-        
+
         // 1. Accumulate Raw Values (Unsnapped)
         rawOffset += (offset ?: Offset.Zero)
         if (scale != null) rawScale *= scale
         if (rotation != null) rawRotation += rotation
-        
+
         // 2. Calculate Candidate Values for Display
         var finalRotation = rawRotation
         var finalOffset = rawOffset
-        
+
         if (_isSnapEnabled.value) {
              // Determine strength parameters
              val (rotationTol, positionTol) = when(_snapStrength.value) {
@@ -306,43 +321,43 @@ class EditorViewModel @Inject constructor(
                  5 -> 25f to 80f // Strongest
                  else -> 10f to 30f
              }
-        
+
              // --- Rotation Snap ---
              // Round to nearest 90 degrees
              val nearest90 = (rawRotation / 90).roundToInt() * 90f
-             
+
              if (abs(rawRotation - nearest90) < rotationTol) {
                  finalRotation = nearest90
              }
-             
+
              // --- Edge Snap ---
              if (finalRotation % 90f == 0f && imageWidth > 0 && imageHeight > 0) {
                   val canvasSize = 512f
                   val baseScale = min(canvasSize / imageWidth, canvasSize / imageHeight)
                   val effectiveScale = baseScale * rawScale
-                  
+
                   // If rotated 90 or 270, width and height are swapped in canvas space
                   val rotationStep = (finalRotation.toInt() / 90)
-                  val isSwapped = abs(rotationStep) % 2 == 1 
-                  
+                  val isSwapped = abs(rotationStep) % 2 == 1
+
                   val currentWidth = if (isSwapped) imageHeight * effectiveScale else imageWidth * effectiveScale
                   val currentHeight = if (isSwapped) imageWidth * effectiveScale else imageHeight * effectiveScale
-                  
+
                   val centerX = 256f + rawOffset.x
                   val centerY = 256f + rawOffset.y
-                  
+
                   val left = centerX - currentWidth / 2f
                   val right = centerX + currentWidth / 2f
                   val top = centerY - currentHeight / 2f
                   val bottom = centerY + currentHeight / 2f
-                  
+
                   var snappedX = rawOffset.x
                   var snappedY = rawOffset.y
-                  
+
                   // Center Snap (Weak)
                   if (abs(rawOffset.x) < positionTol) snappedX = 0f
                   if (abs(rawOffset.y) < positionTol) snappedY = 0f
-                  
+
                   // Edge Snap (Stronger - Overrides Center if detected)
                   // Left Edge -> 0
                   if (abs(left - 0f) < positionTol) {
@@ -352,7 +367,7 @@ class EditorViewModel @Inject constructor(
                   else if (abs(right - 512f) < positionTol) {
                       snappedX = (512f - currentWidth / 2f) - 256f
                   }
-                  
+
                   // Top Edge -> 0
                   if (abs(top - 0f) < positionTol) {
                       snappedY = (currentHeight / 2f) - 256f
@@ -361,7 +376,7 @@ class EditorViewModel @Inject constructor(
                   else if (abs(bottom - 512f) < positionTol) {
                       snappedY = (512f - currentHeight / 2f) - 256f
                   }
-                  
+
                   finalOffset = Offset(snappedX, snappedY)
              } else {
                   // Simple Center Snap if rotated at weird angles
@@ -369,12 +384,12 @@ class EditorViewModel @Inject constructor(
                   if (abs(rawOffset.y) < positionTol) finalOffset = finalOffset.copy(y = 0f)
              }
         }
-        
+
         _imageState.update {
             it.copy(offset = finalOffset, scale = rawScale, rotation = finalRotation)
         }
     }
-    
+
     fun removeBackground() = viewModelScope.launch {
         // REMOVED pushToUndoStack() here because onImageCropped does it
         val uri = imageUri.value ?: return@launch
@@ -386,16 +401,16 @@ class EditorViewModel @Inject constructor(
                  .build()
              val result = context.imageLoader.execute(request)
              val bitmap = result.drawable?.toBitmap()
-             
+
              if (bitmap != null) {
                  val processed = BackgroundRemover.removeBackground(bitmap)
-                 
+
                  // Save to temp file (PNG to preserve alpha)
                  val file = File(context.cacheDir, "bg_removed_${UUID.randomUUID()}.png")
                  FileOutputStream(file).use { out ->
                      processed.compress(Bitmap.CompressFormat.PNG, 100, out)
                  }
-                 
+
                  // Update State
                  onImageCropped(Uri.fromFile(file))
              }
@@ -405,7 +420,7 @@ class EditorViewModel @Inject constructor(
              _isBusy.value = false
         }
     }
-    
+
     fun onNavigatedToSave() {
         _navigateToSave.value = null
     }
@@ -421,14 +436,11 @@ class EditorViewModel @Inject constructor(
         val canvasWidth = 512
         val canvasHeight = 512
         val finalBitmap = Bitmap.createBitmap(canvasWidth, canvasHeight, Bitmap.Config.ARGB_8888)
-        
+
         finalBitmap.applyCanvas {
             val paint = Paint().apply { isAntiAlias = true }
-            val textPaint = Paint().apply {
-                isAntiAlias = true
-                textSize = 32f // Fixed base size matching the UI calculation
-                textAlign = Paint.Align.CENTER
-            }
+            val textPaint = Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER }
+            val strokePaint = Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER; style = Paint.Style.STROKE }
 
             val baseScale = min(canvasWidth.toFloat() / originalBitmap.width, canvasHeight.toFloat() / originalBitmap.height)
             val currentState = _imageState.value
@@ -444,42 +456,52 @@ class EditorViewModel @Inject constructor(
             restore()
 
             texts.value.forEach { textData ->
-                save()
-                textPaint.color = textData.color.toArgb()
-                
-                // Ensure font matching matches StickerTextDisplay in UI
-                textPaint.typeface = when(textData.fontIndex) {
+                val textSize = 32f
+                val typeFace = when(textData.fontIndex) {
                     1 -> Typeface.SERIF
                     2 -> Typeface.MONOSPACE
                     3 -> Typeface.create("cursive", Typeface.ITALIC)
                     4 -> Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-                    else -> Typeface.SANS_SERIF 
+                    else -> Typeface.SANS_SERIF
                 }
 
+                textPaint.textSize = textSize
+                textPaint.typeface = typeFace
+                textPaint.color = textData.color.toArgb()
+
+                strokePaint.textSize = textSize
+                strokePaint.typeface = typeFace
+                strokePaint.color = textData.strokeColor.toArgb()
+                strokePaint.strokeWidth = textData.strokeWidth * 3 // Adjust for thickness
+                strokePaint.strokeJoin = Paint.Join.ROUND
+
+                save()
                 translate(canvasWidth / 2f, canvasHeight / 2f)
                 translate(textData.offset.x, textData.offset.y)
                 rotate(textData.rotation)
                 scale(textData.scale, textData.scale)
-                // Apply a small vertical offset to center text vertically based on baseline
+
                 val fontMetrics = textPaint.fontMetrics
                 val verticalOffset = (fontMetrics.descent - fontMetrics.ascent) / 2 - fontMetrics.descent
+
+                if (textData.strokeWidth > 0) {
+                    drawText(textData.text, 0f, verticalOffset, strokePaint)
+                }
                 drawText(textData.text, 0f, verticalOffset, textPaint)
                 restore()
             }
         }
-        
+
         val file = saveBitmapToTempFile(finalBitmap)
         val encodedUri = URLEncoder.encode(Uri.fromFile(file).toString(), StandardCharsets.UTF_8.toString())
-        
-        // Here we set packageId to -1 if not provided or not relevant for initial save
-        // However, since the user asked for pre-selection logic, we should pass packageIdArg if available.
+
         var route = "${Screen.SaveSticker.name}/$encodedUri"
         if (packageIdArg != -1) {
             route += "?packageId=$packageIdArg"
         } else {
             route += "?packageId=-1"
         }
-        
+
         _navigateToSave.value = route
         _isBusy.value = false
     }

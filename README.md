@@ -1,50 +1,27 @@
 # PureSticker
 
-Aplicativo Android nativo para criação e gerenciamento de pacotes de figurinhas (stickers) para WhatsApp. Desenvolvido em Kotlin com Jetpack Compose.
+Aplicativo Android nativo para criação e gerenciamento de pacotes de figurinhas do WhatsApp. O projeto está em `D:\DESENVOLVIMENTO\WppSticker`.
 
-## Funcionalidades Atuais
+## Documentação
 
-*   **Criação de Pacotes:** Suporte completo para pacotes de Stickers Estáticos (imagens).
-*   **Integração WhatsApp:** Exportação direta dos pacotes para o aplicativo do WhatsApp via ContentProvider.
-*   **Editor de Imagens:**
-    *   Adição e manipulação de textos.
-    *   Remoção de fundo automática (Google ML Kit).
-    *   Ferramentas de corte e alinhamento (snap-to-grid).
-*   **Armazenamento Local:** Todo o gerenciamento de dados é feito localmente usando Room Database.
-*   **Backup e Restauração:** Exportação e importação de pacotes completos via arquivos ZIP.
-*   **Limpeza:** Ferramenta para identificar e remover arquivos de mídia não utilizados no armazenamento interno.
+- [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — referência técnica principal, baseada no código atual; arquitetura, navegação, persistência, mídia, provider e investigação de problemas.
+- [`PROJECT_CONTEXT_PROMPT.md`](PROJECT_CONTEXT_PROMPT.md) — resumo curto para contexto de assistência.
+- `PROJECT_DOCUMENTATION.md`, `BUILD_FIX_PLAN.md`, `IMPROVEMENTS.md` e `PLAN_ANIMATED_STICKERS.md` — registros e planos históricos. Podem conter decisões já superadas; confirmar sempre no código e no guia atual.
 
-## Stack Tecnológica
+## Projeto
 
-*   **Linguagem:** Kotlin 2.0
-*   **UI:** Jetpack Compose (Material3)
-*   **Arquitetura:** MVVM
-*   **Injeção de Dependência:** Hilt
-*   **Persistência:** Room Database
-*   **Processamento de Imagem:** ML Kit (Selfie Segmentation) & Coil
+- Android nativo, Kotlin, Jetpack Compose e módulo Gradle `:app`.
+- `applicationId`: `com.ricardudles.puresticker`; `namespace`: `com.example.wppsticker`.
+- Dados locais em Room e mídia privada em `filesDir`.
+- Integração com WhatsApp via `StickerContentProvider`.
+- Dependências, versões e alvos estão nos arquivos Gradle; consulte o guia antes de presumir comportamento de conversão ou compatibilidade.
 
-## Estrutura do Projeto
+## Desenvolvimento (Windows)
 
-```
-com.ricardudles.puresticker
-├── data             # Definições de banco de dados (Room) e Modelos
-├── di               # Configuração de injeção de dependência
-├── nav              # Gráfico de navegação do Compose
-├── provider         # ContentProvider exposto para o WhatsApp
-├── ui               # Telas e ViewModels
-│   ├── editor       # Lógica de edição de imagens estáticas
-│   ├── home         # Listagem de pacotes
-│   ├── settings     # Configurações e Backup
-│   └── stickerpack  # Visualização e gerenciamento de stickers
-└── util             # Classes utilitárias
+```powershell
+.\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:testDebugUnitTest
+.\gradlew.bat :app:lintDebug
 ```
 
-## Privacidade e Permissões
-
-O aplicativo opera offline e com privacidade máxima.
-*   **Acesso à Mídia:** Utiliza o **Android Photo Picker**. O aplicativo não solicita permissões de leitura de armazenamento (`READ_EXTERNAL_STORAGE` ou `READ_MEDIA_*`). O usuário seleciona apenas os arquivos específicos que deseja usar.
-*   **Integração:** Verifica a instalação do WhatsApp através de queries específicas no manifesto (`com.whatsapp`), sem uso da permissão ampla `QUERY_ALL_PACKAGES`.
-
-## Execução
-
-Requer Android Studio com suporte a Kotlin 2.0. As dependências de bibliotecas (ML Kit, Coil) são baixadas automaticamente via Gradle ao sincronizar o projeto.
+Rode as verificações relevantes à mudança e registre seus resultados. O estado atual do Git pode conter alterações locais: inspecione `git status` antes de editar ou preparar commits.
