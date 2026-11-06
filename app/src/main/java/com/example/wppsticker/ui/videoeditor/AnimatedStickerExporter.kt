@@ -7,10 +7,9 @@ import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.PixelFormat
 import android.media.Image
-import android.media.ImageReader
 import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
@@ -23,7 +22,6 @@ import com.bumptech.glide.gifdecoder.GifHeaderParser
 import com.bumptech.glide.gifdecoder.StandardGifDecoder
 import com.example.wppsticker.ui.editor.TextData
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.yield
@@ -326,7 +324,6 @@ internal object AnimatedStickerExporter {
         isCancelled: () -> Boolean
     ): Boolean {
         val extractor = MediaExtractor()
-        var imageReader: ImageReader? = null
         var decoder: MediaCodec? = null
         try {
             extractor.setDataSource(context, source, null)
@@ -334,22 +331,24 @@ internal object AnimatedStickerExporter {
                 extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME) == videoInfo.mime
             } ?: throw IllegalArgumentException("A faixa de vídeo foi removida ou não pode mais ser acessada.")
             val format = extractor.getTrackFormat(trackIndex)
+            // Request CPU-readable flexible YUV output instead of a Surface. Some vendor
+            // decoders expose opaque PRIVATE buffers to Surface consumers even when an
+            // ImageReader requested RGBA, which makes acquireNextImage() fail at runtime.
+            format.setInteger(
+                MediaFormat.KEY_COLOR_FORMAT,
+                MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible
+            )
             extractor.selectTrack(trackIndex)
             extractor.seekTo(startMs * 1_000L, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
 
-            imageReader = ImageReader.newInstance(
-                videoInfo.width,
-                videoInfo.height,
-                PixelFormat.RGBA_8888,
-                2
-            )
             decoder = try {
                 MediaCodec.createDecoderByType(videoInfo.mime)
             } catch (e: Exception) {
                 throw IllegalStateException("Este aparelho não tem um decoder para ${videoInfo.mime}.", e)
             }
-            decoder.configure(format, imageReader.surface, null, 0)
+            decoder.configure(format, null, null, 0)
             decoder.start()
+            var decoderOutputFormat = decoder.outputFormat
 
             val startUs = startMs * 1_000L
             val endUs = endMs * 1_000L
@@ -390,9 +389,9 @@ internal object AnimatedStickerExporter {
                 when (val outputIndex = decoder.dequeueOutputBuffer(bufferInfo, CODEC_TIMEOUT_US)) {
                     MediaCodec.INFO_TRY_AGAIN_LATER -> Unit
                     MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        val outputFormat = decoder.outputFormat
-                        val outputWidth = outputFormat.integerOrDefault(MediaFormat.KEY_WIDTH, videoInfo.width)
-                        val outputHeight = outputFormat.integerOrDefault(MediaFormat.KEY_HEIGHT, videoInfo.height)
+                        decoderOutputFormat = decoder.outputFormat
+                        val outputWidth = decoderOutputFormat.integerOrDefault(MediaFormat.KEY_WIDTH, videoInfo.width)
+                        val outputHeight = decoderOutputFormat.integerOrDefault(MediaFormat.KEY_HEIGHT, videoInfo.height)
                         require(outputWidth == videoInfo.width && outputHeight == videoInfo.height) {
                             "O decoder alterou as dimensões de saída durante a exportação."
                         }
@@ -403,8 +402,6 @@ internal object AnimatedStickerExporter {
                         val hasImage = bufferInfo.size > 0 &&
                             sourceTimeUs >= startUs && sourceTimeUs < endUs && sourceTimeUs >= nextTargetUs
                         val isEndOfStream = bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0
-                        decoder.releaseOutputBuffer(outputIndex, hasImage)
-
                         if (hasImage) {
                             onProgress(
                                 AnimatedExportProgress(
@@ -419,8 +416,33 @@ internal object AnimatedStickerExporter {
                                     elapsedMs = SystemClock.elapsedRealtime() - exportStartedAt
                                 )
                             )
-                            val image = awaitImage(imageReader, isCancelled, deadline)
-                            val decoded = image.use(::imageToBitmap)
+                        }
+                        val decoded = if (hasImage) {
+                            try {
+                                val image = decoder.getOutputImage(outputIndex)
+                                    ?: throw IllegalStateException("O decoder não disponibilizou a imagem YUV do quadro.")
+                                image.use {
+                                    imageToBitmap(
+                                        it,
+                                        decoderOutputFormat.integerOrDefault(
+                                            MediaFormat.KEY_COLOR_STANDARD,
+                                            defaultColorStandard(videoInfo.width, videoInfo.height)
+                                        ),
+                                        decoderOutputFormat.integerOrDefault(
+                                            MediaFormat.KEY_COLOR_RANGE,
+                                            MediaFormat.COLOR_RANGE_LIMITED
+                                        )
+                                    )
+                                }
+                            } finally {
+                                decoder.releaseOutputBuffer(outputIndex, false)
+                            }
+                        } else {
+                            decoder.releaseOutputBuffer(outputIndex, false)
+                            null
+                        }
+
+                        if (decoded != null) {
                             val oriented = rotate(decoded, videoInfo.rotation)
                             if (oriented !== decoded) decoded.recycle()
                             val normalized = render(oriented, crop, texts)
@@ -478,57 +500,39 @@ internal object AnimatedStickerExporter {
                 runCatching { codec.stop() }
                 codec.release()
             }
-            imageReader?.close()
             extractor.release()
         }
     }
 
-    private suspend fun awaitImage(
-        imageReader: ImageReader,
-        isCancelled: () -> Boolean,
-        deadline: Long
-    ): Image {
-        while (true) {
-            checkExportState(isCancelled, deadline)
-            imageReader.acquireNextImage()?.let { return it }
-            delay(5L)
+    private fun imageToBitmap(image: Image, colorStandard: Int, colorRange: Int): Bitmap {
+        require(image.format == android.graphics.ImageFormat.YUV_420_888) {
+            "O decoder retornou o formato ${image.format}; saída YUV_420_888 era esperada."
+        }
+        val planes = image.planes
+        require(planes.size == 3) { "O decoder retornou um quadro YUV sem os três planos esperados." }
+        val crop = image.cropRect
+        val frame = Yuv420FrameConverter.toArgb(
+            imageWidth = image.width,
+            imageHeight = image.height,
+            cropLeft = crop.left,
+            cropTop = crop.top,
+            cropRight = crop.right,
+            cropBottom = crop.bottom,
+            y = Yuv420FrameConverter.Plane(planes[0].buffer, planes[0].rowStride, planes[0].pixelStride),
+            u = Yuv420FrameConverter.Plane(planes[1].buffer, planes[1].rowStride, planes[1].pixelStride),
+            v = Yuv420FrameConverter.Plane(planes[2].buffer, planes[2].rowStride, planes[2].pixelStride),
+            colorStandard = colorStandard,
+            colorRange = colorRange,
+            maxOutputDimension = MAX_DECODED_FRAME_DIMENSION
+        )
+        return Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888).apply {
+            setPixels(frame.pixels, 0, frame.width, 0, 0, frame.width, frame.height)
         }
     }
 
-    private fun imageToBitmap(image: Image): Bitmap {
-        require(image.format == PixelFormat.RGBA_8888) {
-            "O decoder retornou pixels em formato ${image.format}; RGBA_8888 era esperado."
-        }
-        val plane = image.planes.firstOrNull() ?: throw IllegalStateException("O decoder retornou um quadro vazio.")
-        val pixelStride = plane.pixelStride
-        val rowStride = plane.rowStride
-        require(pixelStride >= 4 && rowStride >= image.width * pixelStride) {
-            "O decoder retornou strides RGBA inválidos (pixel=$pixelStride, linha=$rowStride)."
-        }
-        val pixels = ByteArray(image.width * image.height * 4)
-        val buffer = plane.buffer.duplicate()
-        val rowBytes = image.width * 4
-        for (row in 0 until image.height) {
-            val sourceRow = row * rowStride
-            val targetRow = row * rowBytes
-            if (pixelStride == 4) {
-                buffer.position(sourceRow)
-                buffer.get(pixels, targetRow, rowBytes)
-            } else {
-                for (column in 0 until image.width) {
-                    val sourcePixel = sourceRow + column * pixelStride
-                    val targetPixel = targetRow + column * 4
-                    pixels[targetPixel] = buffer.get(sourcePixel)
-                    pixels[targetPixel + 1] = buffer.get(sourcePixel + 1)
-                    pixels[targetPixel + 2] = buffer.get(sourcePixel + 2)
-                    pixels[targetPixel + 3] = buffer.get(sourcePixel + 3)
-                }
-            }
-        }
-        val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-        bitmap.copyPixelsFromBuffer(ByteBuffer.wrap(pixels))
-        return bitmap
-    }
+    private fun defaultColorStandard(width: Int, height: Int): Int =
+        if (width >= 1280 || height > 576) MediaFormat.COLOR_STANDARD_BT709
+        else MediaFormat.COLOR_STANDARD_BT601_NTSC
 
     private fun rotate(bitmap: Bitmap, rotation: Int): Bitmap {
         val normalizedDegrees = ((rotation % 360) + 360) % 360
@@ -586,6 +590,7 @@ internal object AnimatedStickerExporter {
     private const val PROGRESS_FRAME_STEP = 3
     private const val PROGRESS_INTERVAL_MS = 250L
     private const val MAX_VIDEO_PIXELS = 16L * 1024L * 1024L
+    private const val MAX_DECODED_FRAME_DIMENSION = 1024
 
     private fun render(source: Bitmap, crop: VideoCropState, texts: List<TextData>): Bitmap {
         val frame = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
