@@ -85,7 +85,8 @@
 
     <!-- Save Sticker Screen -->
     <string name="save_sticker_title">Save Sticker</string>
-    <string name="select_emojis">Select Emojis (Max 3)</string>
+    <string name="select_emojis_optional">Emojis (Optional, max 3)</string>
+    <string name="emoji_optional_hint">Choose up to 3 emojis to help people find this sticker. If you leave this empty, 🙂 will be added automatically for WhatsApp compatibility.</string>
     <string name="tap_to_select">Tap to select...</string>
     <string name="add_to_package">Add to Package</string>
     <string name="select_package_placeholder">Select a package...</string>
@@ -170,7 +171,6 @@
     <string name="invalid_email_error">Invalid Email address.</string>
     <string name="invalid_url_error">Website must start with http:// or https://</string>
     <string name="limit_stickers_error">This pack has reached the limit of 30 stickers.</string>
-    <string name="emoji_required_error">At least one emoji is required.</string>
     <string name="min_stickers_error">A sticker pack needs at least 3 stickers to be added to WhatsApp.</string>
     <string name="max_stickers_error">A sticker pack cannot have more than 30 stickers.</string>
     <string name="tray_icon_error">A sticker pack needs a tray icon.</string>

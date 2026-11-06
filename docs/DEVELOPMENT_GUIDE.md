@@ -48,7 +48,7 @@ Fluxos principais observados:
 1. Home lista pacotes e permite criar, apagar, abrir ou enviar pacote ao WhatsApp.
 2. Seleção de tipo inicia seleção de mídia; imagem segue para editor estático e vídeo para editor de vídeo.
 3. Editores recebem URI e, opcionalmente, `packageId` para adicionar a pacote existente. Após editar, navegam à etapa de salvar.
-4. Salvar sticker permite escolher/criar pacote, emojis e persistir a mídia. `SaveStickerViewModel` trata duplicidade pelo hash e eventos de sucesso/erro.
+4. Salvar sticker permite escolher/criar pacote e persistir a mídia. Emojis são opcionais na tela; sem escolha, `StickerEmojiPolicy` aplica 🙂 ao salvar, pois o validador Android oficial do WhatsApp exige pelo menos 1 e aceita até 3 emojis por sticker. O limite de três continua aplicado.
 5. Detalhes do pacote editam metadados, removem stickers e enviam o pacote ao WhatsApp.
 6. Settings exporta backup e limpa órfãos; fluxo de restauração inspeciona ZIP, mostra prévia e restaura somente pacotes selecionados.
 
@@ -77,6 +77,8 @@ O provider atende `metadata`, `metadata/{identifier}`, `stickers/{identifier}` e
 `BackupRepositoryImpl` grava um ZIP com `backup_metadata.json` (DTOs Gson: versão do app, data, pacotes e stickers) e mídia sob `images/`. A restauração inspeciona os metadados, filtra pelos identifiers selecionados, extrai apenas arquivos referenciados e recria os dados locais. Ao alterar o formato, preserve compatibilidade com backups anteriores, tratamento de nomes/duplicidades e coerência do hash e dos nomes físicos.
 
 Os nomes de mídia do backup precisam ser nomes simples de arquivo. A restauração rejeita separadores de caminho, colisões com arquivos existentes e backups que não contêm todos os arquivos requeridos pelos pacotes selecionados. Isso protege `filesDir` contra caminhos maliciosos no ZIP e evita registrar mídia ausente.
+
+Regras consultadas para emojis: [README Android do repositório oficial WhatsApp/stickers](https://github.com/WhatsApp/stickers/blob/main/Android/README.md) e [validador Android](https://github.com/WhatsApp/stickers/blob/main/Android/app/src/main/java/com/example/samplestickerapp/StickerPackValidator.java). A tela explica o fallback ao usuário em português e inglês.
 
 ## 8. Injeção de dependência e ciclo de vida
 
@@ -109,5 +111,5 @@ Execute apenas os comandos necessários à tarefa. Os comandos acima são refer�
 
 ## Estado da revisão (06/11/2026)
 
-`assembleDebug`, `testDebugUnitTest` e `lintDebug` passaram nesta revisão após as correções de compatibilidade API 26 e opt-in Media3. Lint ainda reporta 114 avisos, e AGP/Gradle reporta opções depreciadas. A restauração de backup agora valida nomes de mídia, evita colisões e exige que os arquivos referenciados estejam presentes. Isso não substitui teste manual de restore/WhatsApp em dispositivo.
+`assembleDebug`, `testDebugUnitTest` e `lintDebug` passaram nesta revisão após as correções de compatibilidade API 26, opt-in Media3 e seleção opcional de emojis. Os testes unitários incluem o fallback de emoji. Lint ainda reporta avisos, e AGP/Gradle reporta opções depreciadas. A restauração de backup valida nomes de mídia, evita colisões e exige que os arquivos referenciados estejam presentes. Isso não substitui teste manual de restore/WhatsApp em dispositivo.
 

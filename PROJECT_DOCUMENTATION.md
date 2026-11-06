@@ -14,3 +14,7 @@ A referência técnica ativa é [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_G
 
 As mudanças desta revisão foram verificadas com build, testes unitários e lint; ainda dependem de validação manual dos fluxos em dispositivo.
 
+
+## Emojis opcionais na criação
+
+A documentação Android oficial e `StickerPackValidator` exigem pelo menos 1 emoji e permitem até 3 por figurinha. A tela agora apresenta a seleção como opcional e explica o fallback; `StickerEmojiPolicy` preenche `🙂` quando a lista está vazia antes da persistência. Build, testes unitários (incluindo fallback e preservação da seleção) e lint passaram em 06/11/2026.

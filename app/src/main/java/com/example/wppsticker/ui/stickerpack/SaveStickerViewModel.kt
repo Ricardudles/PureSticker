@@ -12,6 +12,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.wppsticker.R
+import com.example.wppsticker.data.StickerEmojiPolicy
 import com.example.wppsticker.data.local.Sticker
 import com.example.wppsticker.data.local.StickerPackage
 import com.example.wppsticker.domain.usecase.AddStickerUseCase
@@ -173,10 +174,6 @@ class SaveStickerViewModel @Inject constructor(
 
         // --- VALIDATION ---
         val cleanedEmojis = emojis.trim()
-        if (cleanedEmojis.isEmpty()) {
-            _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.emoji_required_error)))
-            return@launch
-        }
         // Decode emojis if they are URL encoded (Phase 3.4 fix)
         val decodedEmojis = try {
             java.net.URLDecoder.decode(cleanedEmojis, java.nio.charset.StandardCharsets.UTF_8.toString())
@@ -184,12 +181,13 @@ class SaveStickerViewModel @Inject constructor(
             cleanedEmojis
         }
         
-        val emojiList = decodedEmojis.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        val selectedEmojiList = decodedEmojis.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         
-        if (emojiList.size > 3) {
+        if (selectedEmojiList.size > StickerEmojiPolicy.MAX_EMOJIS_PER_STICKER) {
             _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.max_emojis_error)))
             return@launch
         }
+        val emojiList = StickerEmojiPolicy.withDefaultIfEmpty(selectedEmojiList)
 
         // Log.d(TAG, "SaveStickerVM: Saving sticker to package '${stickerPackage.name}' (Animated: ${stickerPackage.animated})")
         _loadingMessage.value = context.getString(R.string.analyzing_image)

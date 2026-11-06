@@ -63,16 +63,12 @@ fun SaveStickerScreen(
     
     // --- Helper for Navigation ---
     val navigateToSelection = {
-        if (selectedEmojis.isNotEmpty()) {
-            val encodedUri = URLEncoder.encode(viewModel.stickerUri.toString(), StandardCharsets.UTF_8.toString())
-            val encodedEmojis = URLEncoder.encode(selectedEmojis.joinToString(","), StandardCharsets.UTF_8.toString())
-            val preSelectedId = selectedPackage?.id ?: -1
-            navController.navigate(
-                "${Screen.PackageSelection.name}?isAnimated=$isAnimatedArg&stickerUri=$encodedUri&emojis=$encodedEmojis&preSelectedPackageId=$preSelectedId"
-            )
-        } else {
-            Toast.makeText(context, context.getString(R.string.emoji_required_error), Toast.LENGTH_SHORT).show()
-        }
+        val encodedUri = URLEncoder.encode(viewModel.stickerUri.toString(), StandardCharsets.UTF_8.toString())
+        val encodedEmojis = URLEncoder.encode(selectedEmojis.joinToString(","), StandardCharsets.UTF_8.toString())
+        val preSelectedId = selectedPackage?.id ?: -1
+        navController.navigate(
+            "${Screen.PackageSelection.name}?isAnimated=$isAnimatedArg&stickerUri=$encodedUri&emojis=$encodedEmojis&preSelectedPackageId=$preSelectedId"
+        )
     }
 
     // --- Main UI ---
@@ -124,7 +120,7 @@ fun SaveStickerScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text(stringResource(R.string.select_emojis), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(stringResource(R.string.select_emojis_optional), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         OutlinedTextField(
@@ -149,6 +145,12 @@ fun SaveStickerScreen(
                             ),
                             shape = RoundedCornerShape(12.dp)
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = stringResource(R.string.emoji_optional_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 
@@ -156,7 +158,6 @@ fun SaveStickerScreen(
 
                 Button(
                     onClick = { navigateToSelection() },
-                    enabled = selectedEmojis.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
