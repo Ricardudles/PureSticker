@@ -88,7 +88,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -106,6 +105,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.wppsticker.R
+import com.example.wppsticker.ui.components.StickerCanvasBoundary
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -295,7 +295,7 @@ fun EditorScreen(
                             .clipToBounds()
                     ) {
                         // Checkerboard Background (Transparency Indicator)
-                        val checkerColor1 = MaterialTheme.colorScheme.outline
+                        val checkerColor1 = MaterialTheme.colorScheme.outlineVariant
                         val checkerColor2 = MaterialTheme.colorScheme.surface
 
                         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -313,17 +313,6 @@ fun EditorScreen(
                                     )
                                 }
                             }
-                        }
-
-                        // Guide Border
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            drawRect(
-                                color = Color.White.copy(alpha = 0.3f),
-                                style = Stroke(
-                                    width = 2.dp.toPx(),
-                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 20f), 0f)
-                                )
-                            )
                         }
 
                         // Image Layer
@@ -409,6 +398,9 @@ fun EditorScreen(
                                 }
                             }
                         }
+
+                        // Draw above every layer so the sticker's square edge stays visible over the image.
+                        StickerCanvasBoundary()
                     }
                 }
 

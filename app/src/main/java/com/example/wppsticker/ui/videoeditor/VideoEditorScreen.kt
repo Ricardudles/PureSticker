@@ -69,7 +69,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -92,6 +91,7 @@ import com.example.wppsticker.ui.editor.StickerTextDisplay
 import com.example.wppsticker.ui.editor.TextEditorPanel
 import com.example.wppsticker.ui.editor.ToolButton
 import com.example.wppsticker.ui.editor.TextData
+import com.example.wppsticker.ui.components.StickerCanvasBoundary
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -292,7 +292,7 @@ fun VideoEditorScreen(
                         }
                 ) {
                     // Checkerboard Background (Transparency Indicator)
-                    val checkerColor1 = MaterialTheme.colorScheme.outline
+                    val checkerColor1 = MaterialTheme.colorScheme.outlineVariant
                     val checkerColor2 = MaterialTheme.colorScheme.surface
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val checkerSize = 20.dp.toPx() // Checker size
@@ -309,17 +309,6 @@ fun VideoEditorScreen(
                                 )
                             }
                         }
-                    }
-
-                    // Guide Border
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawRect(
-                            color = Color.White.copy(alpha = 0.3f),
-                            style = Stroke(
-                                width = 2.dp.toPx(),
-                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(20f, 20f), 0f)
-                            )
-                        )
                     }
 
                     // Video Player Layer
@@ -403,6 +392,9 @@ fun VideoEditorScreen(
                     if (showGrid) {
                         GridOverlay(modifier = Modifier.fillMaxSize())
                     }
+
+                    // Keep the sticker boundary visible above the video, text and optional grid.
+                    StickerCanvasBoundary()
                 }
             }
 
