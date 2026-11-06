@@ -27,6 +27,14 @@ Stack efetivamente declarada: Kotlin, Compose Material3, Navigation Compose, Hil
 
 Room está definido em `data/local` (`AppDatabase`, versão 7; `StickerDao`, entidades e `Converters`). `StickerPackage` tem chave numérica local e `identifier` UUID estável para integração/exportação; armazena nome, autor, arquivo da imagem de bandeja, versão de dados de imagem, metadados de publicação e `animated`. `Sticker` referencia o pacote por `packageId` com cascade delete e armazena nome do arquivo, SHA-256, emojis, largura, altura e tamanho em KB. `StickerPackageWithStickers` representa a relação 1:N.
 
+`DatabaseModule` usa atualmente `fallbackToDestructiveMigration()`: uma mudança de versão sem migração pode apagar o banco local. Antes de alterar entidades/versão, recuperar schemas de versões distribuídas e implementar/testar migrações; não confiar no fallback para preservar dados.
+
+### Acompanhamentos futuros
+
+- Substituir a migração destrutiva por migrações Room compatíveis, depois de confirmar os schemas já distribuídos e cobrir upgrades com testes de migração.
+- Validar no dispositivo Android a criação/edição/salvamento de stickers estáticos, integração com WhatsApp e exportação/restauração de backup. O build e lint não comprovam esses fluxos de ponta a ponta.
+- Planejar a criação de figurinhas animadas como um bloco novo; o experimento FFmpeg anterior foi descartado e não deve ser reativado sem validar codec WebP animado, limites e compatibilidade do WhatsApp.
+
 Imagens de bandeja e stickers são arquivos privados em `context.filesDir`; registros Room guardam os nomes dos arquivos. `CleanOrphanFilesUseCase`/utilitários comparam os arquivos existentes com os nomes referenciados. Ao adicionar/remover/restaurar dados, considere consistência entre arquivo e banco e remoção de temporários no caminho de erro.
 
 `StickerRepository` é a porta para dados de sticker e verificação da whitelist do WhatsApp. `StickerRepositoryImpl` delega ao DAO e consulta o provider de whitelist de WhatsApp e WhatsApp Business. Casos de uso em `domain/usecase` encapsulam operações de pacote, stickers, whitelist e limpeza.
@@ -68,6 +76,8 @@ O provider atende `metadata`, `metadata/{identifier}`, `stickers/{identifier}` e
 
 `BackupRepositoryImpl` grava um ZIP com `backup_metadata.json` (DTOs Gson: versão do app, data, pacotes e stickers) e mídia sob `images/`. A restauração inspeciona os metadados, filtra pelos identifiers selecionados, extrai apenas arquivos referenciados e recria os dados locais. Ao alterar o formato, preserve compatibilidade com backups anteriores, tratamento de nomes/duplicidades e coerência do hash e dos nomes físicos.
 
+Os nomes de mídia do backup precisam ser nomes simples de arquivo. A restauração rejeita separadores de caminho, colisões com arquivos existentes e backups que não contêm todos os arquivos requeridos pelos pacotes selecionados. Isso protege `filesDir` contra caminhos maliciosos no ZIP e evita registrar mídia ausente.
+
 ## 8. Injeção de dependência e ciclo de vida
 
 `WppStickerApplication` é a aplicação Hilt. `AppModule`, `DatabaseModule`, `RepositoryModule`, `CoilModule` e `StickerProviderEntryPoint` conectam dependências. O provider é criado pelo Android fora da árvore Compose e acessa dependências pelo entry point; não o converta para injeção de construtor convencional sem rever esse ciclo de vida.
@@ -96,3 +106,8 @@ Na raiz do projeto (Windows):
 ```
 
 Execute apenas os comandos necessários à tarefa. Os comandos acima são referências; este guia não implica que o build ou testes tenham sido executados nesta atualização.
+
+## Estado da revisão (06/11/2026)
+
+`assembleDebug`, `testDebugUnitTest` e `lintDebug` passaram nesta revisão após as correções de compatibilidade API 26 e opt-in Media3. Lint ainda reporta 114 avisos, e AGP/Gradle reporta opções depreciadas. A restauração de backup agora valida nomes de mídia, evita colisões e exige que os arquivos referenciados estejam presentes. Isso não substitui teste manual de restore/WhatsApp em dispositivo.
+

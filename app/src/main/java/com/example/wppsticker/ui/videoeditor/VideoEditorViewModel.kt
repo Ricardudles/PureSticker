@@ -43,6 +43,7 @@ import javax.inject.Inject
 import kotlin.math.max
 
 @HiltViewModel
+@OptIn(UnstableApi::class)
 class VideoEditorViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     @ApplicationContext private val context: Context

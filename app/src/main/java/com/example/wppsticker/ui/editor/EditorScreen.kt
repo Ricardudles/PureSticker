@@ -565,7 +565,7 @@ fun TextEditorPanel(
     onScaleChange: (Float) -> Unit,
     onDelete: () -> Unit,
     onDone: () -> Unit,
-    onToggleStroke: () -> Unit
+    onToggleStroke: (() -> Unit)? = null
 ) {
     Column {
         // Header with Done Button
@@ -627,16 +627,17 @@ fun TextEditorPanel(
                 modifier = Modifier.weight(1f)
             )
 
-            // Outline Toggle Button
-            Spacer(modifier = Modifier.width(16.dp))
-            IconButton(
-                onClick = onToggleStroke,
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = if (textData.strokeWidth > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = if (textData.strokeWidth > 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            ) {
-                Icon(Icons.Default.FormatPaint, contentDescription = "Outline")
+            if (onToggleStroke != null) {
+                Spacer(modifier = Modifier.width(16.dp))
+                IconButton(
+                    onClick = onToggleStroke,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = if (textData.strokeWidth > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (textData.strokeWidth > 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                ) {
+                    Icon(Icons.Default.FormatPaint, contentDescription = "Outline")
+                }
             }
         }
 

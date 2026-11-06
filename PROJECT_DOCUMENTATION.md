@@ -2,8 +2,15 @@
 
 A referência técnica ativa é [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md). Os documentos antigos de planos foram reduzidos a avisos para não manter especificações obsoletas concorrentes.
 
-## Git e bloco de figurinhas animadas
+## Revisão atual (06/11/2026)
 
-A revisão iniciou no commit `193fd9c` (`master`, alinhado com `origin/master`). O trabalho pendente para ativar stickers animados foi removido da árvore: seleção de vídeo, engine FFmpeg, dependência/fork, binding Hilt e arquivos de diagnóstico. O código restante volta ao comportamento versionado nesse commit para o fluxo de vídeo. As alterações locais mantidas são documentação atualizada e uma melhoria de contorno de texto no editor estático; elas ainda não foram commitadas.
+- O bloco experimental de stickers animados foi removido no commit `1229242`; permanece fora do escopo até novo planejamento.
+- Corrigida a API do painel de texto para que o toggle de contorno seja opcional no editor de vídeo.
+- Corrigida compressão WebP no editor para usar `WEBP_LOSSY` somente em API 30+ e o formato legado em API 26–29.
+- Anotado opt-in da API instável do Media3 no ViewModel.
+- Endurecida a restauração de backup contra nomes de arquivo maliciosos, colisões e mídias ausentes.
+- `:app:assembleDebug`, `:app:testDebugUnitTest` e `:app:lintDebug` passaram. Lint ainda informa 114 warnings e há warnings AGP/Gradle de opções depreciadas. Sem teste manual de dispositivo/WhatsApp.
+- `DatabaseModule` ainda usa `fallbackToDestructiveMigration()`, que pode apagar dados quando o schema mudar. Não foi alterado porque precisamos confirmar os schemas históricos para criar migrações seguras.
 
-A compilação não foi validada: a tentativa de `:app:assembleDebug` não iniciou porque Java/JAVA_HOME não está disponível neste ambiente. Não descartar ou publicar alegando validação de build até executar em ambiente Android configurado.
+As mudanças desta revisão foram verificadas com build, testes unitários e lint; ainda dependem de validação manual dos fluxos em dispositivo.
+

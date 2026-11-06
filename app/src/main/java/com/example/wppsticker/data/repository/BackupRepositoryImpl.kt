@@ -78,6 +78,7 @@ class BackupRepositoryImpl @Inject constructor(
                     packagesWithStickers.forEach { pack ->
                         val allImages = pack.stickers.map { it.imageFile } + pack.stickerPackage.trayImageFile
                         allImages.filter { it.isNotEmpty() }.forEach { fileName ->
+                            require(isSafeBackupFileName(fileName)) { "Invalid media filename in local database." }
                             val file = File(context.filesDir, fileName)
                             if (file.exists()) {
                                 FileInputStream(file).use { fis ->
@@ -113,6 +114,16 @@ class BackupRepositoryImpl @Inject constructor(
     override suspend fun restoreBackup(uri: Uri, selectedPackageIdentifiers: List<String>) = withContext(Dispatchers.IO) {
         val backupDto = inspectBackup(uri)
         val packagesToRestore = backupDto.packages.filter { selectedPackageIdentifiers.contains(it.identifier) }
+        val requiredFileNames = packagesToRestore
+            .flatMap { pack -> pack.stickers.map { it.imageFile } + pack.trayImageFile }
+            .filter { it.isNotEmpty() }
+            .toSet()
+
+        requiredFileNames.forEach { fileName ->
+            require(isSafeBackupFileName(fileName)) { "Backup contains an invalid media filename." }
+        }
+
+        val extractedFileNames = mutableSetOf<String>()
         
         context.contentResolver.openInputStream(uri)?.use { inputStream ->
             ZipInputStream(inputStream).use { zis ->
@@ -120,18 +131,24 @@ class BackupRepositoryImpl @Inject constructor(
                 while (entry != null) {
                     if (entry.name.startsWith("images/")) {
                         val fileName = entry.name.substringAfter("images/")
-                        val isNeeded = packagesToRestore.any { it.stickers.any { s -> s.imageFile == fileName } || it.trayImageFile == fileName }
+                        require(isSafeBackupFileName(fileName)) { "Backup contains an invalid media path." }
 
-                        if (isNeeded) {
+                        if (fileName in requiredFileNames) {
                             val outputFile = File(context.filesDir, fileName)
+                            require(!outputFile.exists()) { "A media file with the same name already exists." }
                             FileOutputStream(outputFile).use { fos ->
                                 zis.copyTo(fos)
                             }
+                            extractedFileNames += fileName
                         }
                     }
                     entry = zis.nextEntry
                 }
             }
+        }
+
+        require(extractedFileNames.containsAll(requiredFileNames)) {
+            "Backup is missing one or more media files for the selected packages."
         }
 
         packagesToRestore.forEach { backupPackage ->
@@ -194,5 +211,15 @@ class BackupRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             ""
         }
+    }
+
+    private fun isSafeBackupFileName(fileName: String): Boolean {
+        return fileName.isNotBlank() &&
+            fileName != "." &&
+            fileName != ".." &&
+            '/' !in fileName &&
+            '\\' !in fileName &&
+            '\u0000' !in fileName &&
+            File(fileName).name == fileName
     }
 }
