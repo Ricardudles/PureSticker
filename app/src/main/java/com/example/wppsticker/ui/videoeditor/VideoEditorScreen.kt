@@ -1,6 +1,7 @@
 package com.example.wppsticker.ui.videoeditor
 
 import android.graphics.Bitmap
+import android.content.pm.ApplicationInfo
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
@@ -20,13 +21,18 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -41,6 +47,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RangeSlider
@@ -78,6 +85,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -118,13 +126,15 @@ fun VideoEditorScreen(
     val showTextDialog by viewModel.showTextDialog.collectAsState()
     
     val isBusy by viewModel.isBusy.collectAsState()
-    val processingMessage by viewModel.processingMessage.collectAsState()
+    val exportProgress by viewModel.exportProgress.collectAsState()
+    val exportFailure by viewModel.exportFailure.collectAsState()
     val navigateToSave by viewModel.navigateToSave.collectAsState()
     val showGrid by viewModel.showGrid.collectAsState()
 
     // Undo/Redo States
     val canUndo by viewModel.canUndo.collectAsState()
     val canRedo by viewModel.canRedo.collectAsState()
+    val isDebuggable = LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
 
     var showExitDialog by remember { mutableStateOf(false) }
     
@@ -200,6 +210,42 @@ fun VideoEditorScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.showTextDialog(false) }) { Text(stringResource(R.string.cancel)) }
+            }
+        )
+    }
+
+    exportFailure?.let { failure ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissExportFailure() },
+            title = { Text(stringResource(R.string.animated_export_error_title)) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(failure.message)
+                    failure.debugDetails?.let { details ->
+                        Text(
+                            stringResource(R.string.animated_export_error_debug_title),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        SelectionContainer {
+                            Text(
+                                details,
+                                fontFamily = FontFamily.Monospace,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissExportFailure() }) {
+                    Text(stringResource(R.string.animated_export_dismiss))
+                }
             }
         )
     }
@@ -519,16 +565,109 @@ fun VideoEditorScreen(
 
             // Loading Overlay
             if (isBusy) {
-                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(processingMessage ?: stringResource(R.string.loading), color = MaterialTheme.colorScheme.onSurface)
-                        
-                        // Cancel Button
-                        Spacer(modifier = Modifier.height(16.dp))
-                        TextButton(onClick = { viewModel.cancelSave() }) {
-                            Text(stringResource(R.string.video_editor_cancel_button), color = MaterialTheme.colorScheme.error)
+                Box(
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .widthIn(max = 460.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(20.dp),
+                        tonalElevation = 8.dp,
+                        shadowElevation = 18.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Text(
+                                stringResource(R.string.animated_export_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+
+                            if (exportProgress.totalFrames > 0) {
+                                val fraction = (exportProgress.frame.toFloat() / exportProgress.totalFrames)
+                                    .coerceIn(0f, 1f)
+                                LinearProgressIndicator(
+                                    progress = fraction,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Text(
+                                    stringResource(
+                                        R.string.animated_export_frames,
+                                        exportProgress.frame,
+                                        exportProgress.totalFrames
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            }
+
+                            Text(
+                                text = when (exportProgress.stage) {
+                                    AnimatedExportStage.PREPARING -> stringResource(R.string.animated_export_preparing)
+                                    AnimatedExportStage.DECODING -> stringResource(R.string.animated_export_decoding)
+                                    AnimatedExportStage.ENCODING -> stringResource(R.string.animated_export_encoding)
+                                    AnimatedExportStage.VALIDATING -> stringResource(R.string.animated_export_validating)
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            if (exportProgress.totalAttempts > 0) {
+                                Text(
+                                    stringResource(
+                                        R.string.animated_export_attempt,
+                                        exportProgress.attempt,
+                                        exportProgress.totalAttempts,
+                                        exportProgress.frameRate,
+                                        exportProgress.quality
+                                    ),
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+
+                            if (exportProgress.frameRate > 0) {
+                                Text(
+                                    stringResource(
+                                        R.string.animated_export_source_time,
+                                        formatTime(exportProgress.sourceTimeMs)
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Text(
+                                stringResource(
+                                    R.string.animated_export_elapsed,
+                                    formatTime(exportProgress.elapsedMs)
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            if (isDebuggable) {
+                                Text(
+                                    stringResource(R.string.animated_export_debug_mode),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+
+                            TextButton(
+                                onClick = { viewModel.cancelSave() },
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Text(
+                                    stringResource(R.string.animated_export_cancel),
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     }
                 }

@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.content.pm.ApplicationInfo
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.ui.geometry.Offset
@@ -16,6 +18,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.wppsticker.ui.editor.TextData
 import com.example.wppsticker.nav.Screen
+import com.example.wppsticker.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -27,7 +30,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.isActive
 import java.io.File
 import java.net.URLEncoder
@@ -87,6 +92,12 @@ class VideoEditorViewModel @Inject constructor(
     
     private val _processingMessage = MutableStateFlow<String?>(null)
     val processingMessage: StateFlow<String?> = _processingMessage.asStateFlow()
+
+    private val _exportProgress = MutableStateFlow(AnimatedExportProgress())
+    val exportProgress: StateFlow<AnimatedExportProgress> = _exportProgress.asStateFlow()
+
+    private val _exportFailure = MutableStateFlow<AnimatedExportFailure?>(null)
+    val exportFailure: StateFlow<AnimatedExportFailure?> = _exportFailure.asStateFlow()
 
     private val _navigateToSave = MutableStateFlow<String?>(null)
     val navigateToSave: StateFlow<String?> = _navigateToSave.asStateFlow()
@@ -406,38 +417,59 @@ class VideoEditorViewModel @Inject constructor(
         if (_isBusy.value) return
         exportJob = viewModelScope.launch {
             _isBusy.value = true
-            _processingMessage.value = "Preparando WebP animado..."
+            _exportFailure.value = null
+            val startedAt = SystemClock.elapsedRealtime()
+            _exportProgress.value = AnimatedExportProgress(stage = AnimatedExportStage.PREPARING)
             val uri = _videoUri.value ?: run { _isBusy.value = false; return@launch }
             val exportContext = kotlin.coroutines.coroutineContext
             var result: AnimatedExportResult? = null
+            val elapsedTicker = launch {
+                while (isActive) {
+                    delay(1_000L)
+                    _exportProgress.update { it.copy(elapsedMs = SystemClock.elapsedRealtime() - startedAt) }
+                }
+            }
             try {
-                result = withContext(Dispatchers.IO) {
-                    val outputDirectory = File(context.cacheDir, "animated-sticker-export").apply { mkdirs() }
-                    AnimatedStickerExporter.export(
-                        context = context,
-                        source = uri,
-                        isGif = _isGif.value,
-                        trimStartMs = _trimRange.value.first,
-                        trimEndMs = _trimRange.value.last,
-                        crop = _cropState.value,
-                        texts = _texts.value,
-                        profile = _exportProfile.value,
-                        outputDirectory = outputDirectory,
-                        onProgress = { _processingMessage.value = it },
-                        isCancelled = { !exportContext.isActive }
-                    )
+                result = withTimeout(AnimatedStickerExporter.MAX_EXPORT_TIME_MS) {
+                    withContext(Dispatchers.IO) {
+                        val outputDirectory = File(context.cacheDir, "animated-sticker-export").apply { mkdirs() }
+                        AnimatedStickerExporter.export(
+                            context = context,
+                            source = uri,
+                            isGif = _isGif.value,
+                            trimStartMs = _trimRange.value.first,
+                            trimEndMs = _trimRange.value.last,
+                            crop = _cropState.value,
+                            texts = _texts.value,
+                            profile = _exportProfile.value,
+                            outputDirectory = outputDirectory,
+                            onProgress = { progress ->
+                                _exportProgress.value = progress.copy(
+                                    elapsedMs = SystemClock.elapsedRealtime() - startedAt
+                                )
+                            },
+                            isCancelled = { !exportContext.isActive }
+                        )
+                    }
                 }
                 val output = result ?: error("A exportação não retornou um arquivo.")
                 val encodedUri = URLEncoder.encode(Uri.fromFile(output.file).toString(), StandardCharsets.UTF_8.toString())
-                _processingMessage.value = "WebP animado pronto · ${output.sizeBytes / 1024} KiB · ${output.frameRate} fps"
                 _navigateToSave.value = "${Screen.SaveSticker.name}/$encodedUri?packageId=$packageIdArg&isAnimated=true"
+            } catch (e: TimeoutCancellationException) {
+                result?.file?.delete()
+                publishExportFailure(
+                    IllegalStateException(
+                        context.getString(R.string.animated_export_timeout_message), e
+                    )
+                )
             } catch (e: CancellationException) {
                 result?.file?.delete()
                 throw e
             } catch (e: Exception) {
-                Log.e("VideoEditor", "Could not export animated WebP", e)
-                _processingMessage.value = e.localizedMessage ?: "Falha ao criar WebP animado."
+                result?.file?.delete()
+                publishExportFailure(e)
             } finally {
+                elapsedTicker.cancel()
                 _isBusy.value = false
             }
         }
@@ -447,6 +479,19 @@ class VideoEditorViewModel @Inject constructor(
         exportJob?.cancel()
         _isBusy.value = false
         _processingMessage.value = null
+    }
+
+    fun dismissExportFailure() {
+        _exportFailure.value = null
+    }
+
+    private fun publishExportFailure(error: Exception) {
+        Log.e("VideoEditor", "Could not export animated WebP", error)
+        val isDebuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        _exportFailure.value = AnimatedExportFailure(
+            message = error.localizedMessage ?: context.getString(R.string.animated_export_error_generic),
+            debugDetails = if (isDebuggable) Log.getStackTraceString(error) else null
+        )
     }
 
     fun onNavigatedToSave() {

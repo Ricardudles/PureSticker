@@ -190,6 +190,24 @@
     <string name="optimizing_sticker">Optimizing sticker...</string>
     <string name="generating_tray">Generating tray icon...</string>
 
+    <!-- Animated export -->
+    <string name="animated_export_title">Creating animated sticker</string>
+    <string name="animated_export_preparing">Preparing source video and decoder</string>
+    <string name="animated_export_decoding">Decoding video frames</string>
+    <string name="animated_export_encoding">Rendering and encoding WebP</string>
+    <string name="animated_export_validating">Checking size and WhatsApp limits</string>
+    <string name="animated_export_attempt">Attempt %1$d of %2$d · %3$d fps · quality %4$d</string>
+    <string name="animated_export_frames">Output frames: %1$d of %2$d</string>
+    <string name="animated_export_source_time">Source position: %1$s</string>
+    <string name="animated_export_elapsed">Elapsed: %1$s</string>
+    <string name="animated_export_debug_mode">Debug mode · detailed failure information will be shown</string>
+    <string name="animated_export_cancel">Cancel export</string>
+    <string name="animated_export_error_title">Could not create animated sticker</string>
+    <string name="animated_export_error_generic">The selected video could not be exported.</string>
+    <string name="animated_export_timeout_message">Export took longer than 3 minutes and was stopped. Select a shorter clip and try again.</string>
+    <string name="animated_export_error_debug_title">Technical details (debug)</string>
+    <string name="animated_export_dismiss">Close</string>
+
     <!-- Accessibility & Content Descriptions -->
     <string name="settings">Settings</string>
     <string name="send_to_whatsapp_desc">Send to WhatsApp</string>

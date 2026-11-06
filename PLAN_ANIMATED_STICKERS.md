@@ -5,7 +5,9 @@ Atualizado em 06/11/2026. Este documento descreve o código atual e as validaç�
 ## Implementado
 
 - A seleção de mídia aceita vídeos e GIFs e encaminha ambos ao editor animado. O editor permite trecho de até 10 segundos, preview em loop, enquadramento/zoom/rotação, texto, grade, desfazer/refazer e perfis **Mais fluida**, **Equilibrada** e **Mais nítida**.
-- GIF é lido sequencialmente com o módulo isolado `gifdecoder`. Vídeo é amostrado por tempo usando `MediaMetadataRetriever`; Media3/ExoPlayer continua responsável pela reprodução e Transformer não é mais usado para criar a figurinha.
+- GIF é lido sequencialmente com o módulo isolado `gifdecoder`. Vídeo é lido sequencialmente por `MediaExtractor`/`MediaCodec`, com saída RGBA via `ImageReader`; Media3/ExoPlayer continua responsável pela reprodução e Transformer não é usado para criar a figurinha.
+- A exportação ocorre em `Dispatchers.IO`, fora da thread de UI. O decoder usa o worker do codec; quadros são convertidos, renderizados e entregues ao encoder nativo em ordem e um por vez, com `ImageReader` limitado a dois buffers. A codificação de uma animação permanece serial para preservar timestamps e segurança do encoder. Cada candidato ainda reabre e decodifica a fonte, portanto o custo cresce com o número de tentativas.
+- O diálogo de exportação mostra etapa, tentativa/perfil, progresso de quadros, posição de origem e tempo decorrido. Cancelamento e timeout de três minutos são cooperativos; erros são registrados e exibidos, incluindo stack trace apenas em build debug.
 - Os quadros são renderizados em canvas 512×512 com texto e transformações. A saída é codificada pelo `WebPAnimEncoder` do libwebp JNI 1.6.0. A busca tenta combinações de FPS e qualidade, mede cada arquivo produzido e mantém a primeira combinação que passa na validação e cabe em 512.000 bytes.
 - A prioridade dos perfis é: FPS e depois qualidade; qualidade e depois FPS; e produto normalizado FPS×qualidade, respectivamente. Os FPS tentados partem da taxa estimada da fonte, até 125 FPS (limite decorrente de 8 ms por quadro), sem limite arbitrário de 30 FPS.
 - Antes de salvar, o libwebp demuxer verifica RIFF/WebP, canvas 512×512, sinalizador de animação, mais de um quadro, duração mínima de 8 ms por quadro e duração total máxima de 10 s. Pacotes continuam homogêneos: fontes animadas são recusadas em pacotes estáticos.
@@ -23,13 +25,13 @@ Atualizado em 06/11/2026. Este documento descreve o código atual e as validaç�
 
 ## Limitações ainda abertas
 
-1. O vídeo usa `MediaMetadataRetriever` com busca por timestamp. Isso não entrega uma leitura sequencial de PTS com precisão garantida para VFR. Migrar para `MediaExtractor`/`MediaCodec`, tratar PTS por quadro e verificar codecs/strides/colorimetria.
+1. A migração para `MediaExtractor`/`MediaCodec` está implementada, mas requer ensaios no aparelho com vídeo VFR, seek para início não-chave, orientação, aspect ratio, codecs indisponíveis e URIs revogadas. A saída `ImageReader` RGBA e o stride precisam de validação em aparelhos de fabricantes distintos.
 2. Conversão HDR→SDR não está explicitamente controlada nem garantida idêntica ao preview. Validar fontes HDR em aparelhos diferentes e implementar tone mapping consistente.
-3. A orientação é deixada ao decoder/plataforma; faltam testes específicos para metadados de rotação e proporção de pixel.
-4. A busca de qualidade pode recodificar os mesmos quadros muitas vezes. Medir duração, memória e bateria em aparelhos modestos e limitar/adaptar o número de tentativas sem trocar medição real por estimativa.
-5. O perfil mostra progresso durante a busca e tamanho/FPS ao concluir, mas ainda não existe etapa dedicada para comparar a prévia final antes de ir para seleção do pacote.
-6. Os testes instrumentados `AnimatedWebpNativeTest` executaram e passaram no AVD API 36.1: `WebPMux` conservou dois quadros iguais; `WebPAnimEncoder` codificou dois quadros diferentes; a validação aceitou 8 ms e 10 s exatos, rejeitou 7 ms e 10 s + 1 ms, e o decoder leu o primeiro quadro.
-7. Ainda não foram feitos testes em Android API 26, aparelho físico moderno, kernel/ambiente configurado com páginas de 16 KiB ou WhatsApp real (adicionar pacote, enviar, conferir loop e limites). O alinhamento ELF/APK foi verificado, mas não substitui o teste em sistema com página de 16 KiB.
+3. A busca de qualidade ainda redecodifica a fonte para cada candidato (até 35 combinações atualmente). O timeout evita espera ilimitada, mas medir duração, memória e bateria em aparelhos modestos; depois otimizar número de tentativas ou reutilizar quadros em cache limitado sem substituir tamanho medido por estimativa.
+4. O perfil mostra progresso durante a busca e tamanho/FPS ao concluir, mas ainda não existe etapa dedicada para comparar a prévia final antes de ir para seleção do pacote.
+5. Os testes instrumentados `AnimatedWebpNativeTest` executaram e passaram no AVD API 36.1: `WebPMux` conservou dois quadros iguais; `WebPAnimEncoder` codificou dois quadros diferentes; a validação aceitou 8 ms e 10 s exatos, rejeitou 7 ms e 10 s + 1 ms, e o decoder leu o primeiro quadro.
+6. Ainda não foram feitos testes em Android API 26, aparelho físico moderno com esta versão do decoder, kernel/ambiente configurado com páginas de 16 KiB ou WhatsApp real (adicionar pacote, enviar, conferir loop e limites). O alinhamento ELF/APK foi verificado, mas não substitui o teste em sistema com página de 16 KiB.
+7. Em 06/11/2026, a versão anterior do app permaneceu executando uma tentativa de exportação por vários minutos, avançando lentamente pela fonte e consumindo até um núcleo de CPU. Essa execução não foi encerrada para preservar o diagnóstico; a versão atualizada ainda não foi instalada no aparelho e não pode ser validada nele enquanto o teste anterior estiver ativo.
 
 ## Verificações locais executadas
 
@@ -38,6 +40,7 @@ Atualizado em 06/11/2026. Este documento descreve o código atual e as validaç�
 - `:app:compileDebugAndroidTestKotlin` — passou.
 - `:app:connectedDebugAndroidTest` — passou no AVD `Medium_Phone_API_36.1` (4 testes, incluindo muxagem de quadros duplicados, encoder e limites de quadro/duração).
 - `:app:lintDebug` — passou.
+- `:app:assembleDebug :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug` — passaram após implementar o decoder sequencial, feedback, cancelamento e timeout (06/11/2026).
 - `:app:externalNativeBuildDebug` — passou para arm64-v8a, armeabi-v7a e x86_64.
 - Verificação ELF via `llvm-readelf`: segmentos de 64 bits com alinhamento 16 KiB.
 - `zipalign -c -P 16 4 app-debug.apk` — passou.
