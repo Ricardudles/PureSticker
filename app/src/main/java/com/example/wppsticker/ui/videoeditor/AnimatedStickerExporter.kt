@@ -246,6 +246,9 @@ internal object AnimatedStickerExporter {
                 attempt, attemptCount, targetFrameCount, exportStartedAt, deadline,
                 onProgress, isCancelled
             ).also { handle = 0L }
+        } catch (failure: Throwable) {
+            Log.e("AnimatedStickerExporter", "Candidate $attempt failed before native encoder cleanup", failure)
+            throw failure
         } finally {
             if (handle != 0L) AnimatedWebpNative.abort(handle)
         }

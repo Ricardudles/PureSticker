@@ -126,8 +126,9 @@ Java_com_example_wppsticker_ui_videoeditor_AnimatedWebpNative_finish(
 extern "C" JNIEXPORT void JNICALL
 Java_com_example_wppsticker_ui_videoeditor_AnimatedWebpNative_abort(
     JNIEnv*, jobject, jlong handle) {
+  // Encoder owns the WebPAnimEncoder and deletes it from its destructor.
+  // Do not delete encoder->value here as well: that double-frees libwebp state.
   std::unique_ptr<Encoder> encoder(reinterpret_cast<Encoder*>(handle));
-  if (encoder && encoder->value) WebPAnimEncoderDelete(encoder->value);
 }
 
 extern "C" JNIEXPORT jboolean JNICALL

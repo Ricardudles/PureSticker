@@ -8,6 +8,7 @@ Atualizado em 06/11/2026. Este documento descreve o código atual e as validaç�
 - GIF é lido sequencialmente com o módulo isolado `gifdecoder`. Vídeo é lido sequencialmente por `MediaExtractor`/`MediaCodec`, com saída RGBA via `ImageReader`; Media3/ExoPlayer continua responsável pela reprodução e Transformer não é usado para criar a figurinha.
 - A exportação ocorre em `Dispatchers.IO`, fora da thread de UI. O decoder usa o worker do codec; quadros são convertidos, renderizados e entregues ao encoder nativo em ordem e um por vez, com `ImageReader` limitado a dois buffers. A codificação de uma animação permanece serial para preservar timestamps e segurança do encoder. Cada candidato ainda reabre e decodifica a fonte, portanto o custo cresce com o número de tentativas.
 - O diálogo de exportação mostra etapa, tentativa/perfil, progresso de quadros, posição de origem e tempo decorrido. Cancelamento e timeout de três minutos são cooperativos; erros são registrados e exibidos, incluindo stack trace apenas em build debug.
+- O handle JNI do encoder tem um único proprietário: o destrutor `Encoder` libera o `WebPAnimEncoder` ao cancelar uma tentativa. `AnimatedWebpNative.abort()` não pode liberar o encoder separadamente.
 - Os quadros são renderizados em canvas 512×512 com texto e transformações. A saída é codificada pelo `WebPAnimEncoder` do libwebp JNI 1.6.0. A busca tenta combinações de FPS e qualidade, mede cada arquivo produzido e mantém a primeira combinação que passa na validação e cabe em 512.000 bytes.
 - A prioridade dos perfis é: FPS e depois qualidade; qualidade e depois FPS; e produto normalizado FPS×qualidade, respectivamente. Os FPS tentados partem da taxa estimada da fonte, até 125 FPS (limite decorrente de 8 ms por quadro), sem limite arbitrário de 30 FPS.
 - Antes de salvar, o libwebp demuxer verifica RIFF/WebP, canvas 512×512, sinalizador de animação, mais de um quadro, duração mínima de 8 ms por quadro e duração total máxima de 10 s. Pacotes continuam homogêneos: fontes animadas são recusadas em pacotes estáticos.
@@ -31,16 +32,19 @@ Atualizado em 06/11/2026. Este documento descreve o código atual e as validaç�
 4. O perfil mostra progresso durante a busca e tamanho/FPS ao concluir, mas ainda não existe etapa dedicada para comparar a prévia final antes de ir para seleção do pacote.
 5. Os testes instrumentados `AnimatedWebpNativeTest` executaram e passaram no AVD API 36.1: `WebPMux` conservou dois quadros iguais; `WebPAnimEncoder` codificou dois quadros diferentes; a validação aceitou 8 ms e 10 s exatos, rejeitou 7 ms e 10 s + 1 ms, e o decoder leu o primeiro quadro.
 6. Ainda não foram feitos testes em Android API 26, aparelho físico moderno com esta versão do decoder, kernel/ambiente configurado com páginas de 16 KiB ou WhatsApp real (adicionar pacote, enviar, conferir loop e limites). O alinhamento ELF/APK foi verificado, mas não substitui o teste em sistema com página de 16 KiB.
-7. Em 06/11/2026, a versão anterior do app permaneceu executando uma tentativa de exportação por vários minutos, avançando lentamente pela fonte e consumindo até um núcleo de CPU. Essa execução não foi encerrada para preservar o diagnóstico; a versão atualizada ainda não foi instalada no aparelho e não pode ser validada nele enquanto o teste anterior estiver ativo.
+7. Em 06/11/2026, o Samsung apresentou `SIGABRT` ao abortar uma tentativa: `AnimatedWebpNative.abort()` liberava o `WebPAnimEncoder` e depois `Encoder::~Encoder()` liberava o mesmo ponteiro novamente. O Scudo identificou estado de chunk inválido. A chamada duplicada foi removida; os caminhos de abort vazio, com um quadro e com dois quadros agora passam no AVD API 36. A nova versão ainda não foi instalada no Samsung porque a sessão LLDB da falha está pausada nele.
+8. No checkout aberto, Gradle 9.1 falhou ao registrar a saída CMake porque o arquivo temporário `libanimated_webp.so934e1d56.tmp` desapareceu durante o cálculo MD5. O mesmo código compilou para as três ABIs e passou nos testes/lint numa cópia isolada; investigar a interação do output CMake/IDE para voltar a validar builds diretamente no checkout aberto.
 
 ## Verificações locais executadas
 
 - `:app:assembleDebug` — passou.
 - `:app:testDebugUnitTest` — passou.
 - `:app:compileDebugAndroidTestKotlin` — passou.
-- `:app:connectedDebugAndroidTest` — passou no AVD `Medium_Phone_API_36.1` (4 testes, incluindo muxagem de quadros duplicados, encoder e limites de quadro/duração).
+- `:app:connectedDebugAndroidTest` — passou no AVD `Medium_Phone_API_36.1` (7 testes: muxagem, encode/decode, limites e abort de encoder vazio/parcial).
 - `:app:lintDebug` — passou.
 - `:app:assembleDebug :app:testDebugUnitTest :app:compileDebugAndroidTestKotlin :app:lintDebug` — passaram após implementar o decoder sequencial, feedback, cancelamento e timeout (06/11/2026).
+- `:app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug` — passaram numa cópia de validação isolada com a correção de ownership JNI; os 7 testes instrumentados passaram em `Medium_Phone_API_36.1` (06/11/2026).
+- Build no checkout aberto — `:app:buildCMakeDebug[arm64-v8a]` ainda falha ao calcular o MD5 de `.so934e1d56.tmp` inexistente; este erro não ocorreu na cópia isolada usada para a validação acima.
 - `:app:externalNativeBuildDebug` — passou para arm64-v8a, armeabi-v7a e x86_64.
 - Verificação ELF via `llvm-readelf`: segmentos de 64 bits com alinhamento 16 KiB.
 - `zipalign -c -P 16 4 app-debug.apk` — passou.

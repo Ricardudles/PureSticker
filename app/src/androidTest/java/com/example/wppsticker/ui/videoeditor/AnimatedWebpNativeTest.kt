@@ -58,6 +58,40 @@ class AnimatedWebpNativeTest {
     }
 
     @Test
+    fun abortingEmptyAnimationEncoderReleasesSafely() = abortEncoderAfterFrames(0)
+
+    @Test
+    fun abortingOneFrameAnimationEncoderReleasesSafely() = abortEncoderAfterFrames(1)
+
+    @Test
+    fun abortingTwoFrameAnimationEncoderReleasesSafely() = abortEncoderAfterFrames(2)
+
+    private fun abortEncoderAfterFrames(frameCount: Int) {
+        val first = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.RED)
+        }
+        val second = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.BLUE)
+        }
+        try {
+            var encoder = AnimatedWebpNative.create(512, 512, 85f)
+            try {
+                assertTrue(encoder != 0L)
+                if (frameCount >= 1) assertTrue(AnimatedWebpNative.addFrame(encoder, first, 0))
+                if (frameCount >= 2) assertTrue(AnimatedWebpNative.addFrame(encoder, second, 100))
+            } finally {
+                if (encoder != 0L) {
+                    AnimatedWebpNative.abort(encoder)
+                    encoder = 0L
+                }
+            }
+        } finally {
+            first.recycle()
+            second.recycle()
+        }
+    }
+
+    @Test
     fun validatorAcceptsEightMillisecondsAndTenSecondsOnly() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val first = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).apply {
