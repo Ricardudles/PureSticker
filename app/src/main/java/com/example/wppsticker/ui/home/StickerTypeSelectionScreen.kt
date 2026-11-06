@@ -1,7 +1,6 @@
 package com.example.wppsticker.ui.home
 
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -86,11 +85,25 @@ fun StickerTypeSelectionScreen(navController: NavController) {
         }
     )
 
+    val animatedPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+                pickedUri = uri
+            }
+        }
+    )
+
     fun onTypeSelected(isAnimated: Boolean) {
         isAnimatedSelection = isAnimated
-        
         if (isAnimated) {
-             Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
+            animatedPickerLauncher.launch(arrayOf("video/*", "image/gif"))
         } else {
              // Just launch the picker
              mediaPickerLauncher.launch(
@@ -149,10 +162,9 @@ fun StickerTypeSelectionScreen(navController: NavController) {
                 TypeSelectionCard(
                     icon = Icons.Default.Movie,
                     title = stringResource(R.string.animated_sticker),
-                    subtitle = stringResource(R.string.coming_soon),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, 
+                    subtitle = stringResource(R.string.animated_sticker_desc),
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f),
-                    isEnabled = false,
                     onClick = { onTypeSelected(true) }
                 )
             }

@@ -1,5 +1,6 @@
 package com.example.wppsticker.ui.videoeditor
 
+import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
@@ -50,12 +51,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,6 +76,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -89,6 +93,10 @@ import com.example.wppsticker.ui.editor.TextEditorPanel
 import com.example.wppsticker.ui.editor.ToolButton
 import com.example.wppsticker.ui.editor.TextData
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -98,6 +106,8 @@ fun VideoEditorScreen(
     viewModel: VideoEditorViewModel = hiltViewModel()
 ) {
     val videoUri by viewModel.videoUri.collectAsState()
+    val isGif by viewModel.isGif.collectAsState()
+    val exportProfile by viewModel.exportProfile.collectAsState()
     val cropState by viewModel.cropState.collectAsState()
     val trimRange by viewModel.trimRange.collectAsState()
     val videoDuration by viewModel.videoDuration.collectAsState()
@@ -132,8 +142,7 @@ fun VideoEditorScreen(
 
     LaunchedEffect(navigateToSave) {
         navigateToSave?.let { route ->
-            // Append isAnimated=true for video stickers
-            var finalRoute = "$route&isAnimated=true"
+            var finalRoute = if (route.contains("isAnimated=")) route else "$route&isAnimated=true"
             // Append packageId if present (though ViewModel might have added it, let's ensure)
             if (packageIdArg != -1 && !finalRoute.contains("packageId=")) {
                 finalRoute += "&packageId=$packageIdArg"
@@ -267,8 +276,17 @@ fun VideoEditorScreen(
                         }
                         .pointerInput(Unit) {
                             if (!isBusy) {
-                                detectTransformGestures { _, pan, zoom, _ ->
-                                    viewModel.updateCropState(offset = pan, scale = zoom)
+                                detectTransformGestures { _, pan, zoom, rotation ->
+                                    if (pan != Offset.Zero || zoom != 1f || rotation != 0f) {
+                                        viewModel.onGestureStart()
+                                        viewModel.updateCropState(
+                                            offset = Offset(pan.x * scaleToCanvas, pan.y * scaleToCanvas),
+                                            scale = zoom,
+                                            rotation = rotation
+                                        )
+                                    } else {
+                                        viewModel.onGestureEnd()
+                                    }
                                 }
                             }
                         }
@@ -305,7 +323,21 @@ fun VideoEditorScreen(
                     }
 
                     // Video Player Layer
-                    if (videoUri != null) {
+                    if (videoUri != null && isGif) {
+                        GifTrimPreview(
+                            uri = videoUri!!,
+                            trimRange = trimRange,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    scaleX = cropState.scale
+                                    scaleY = cropState.scale
+                                    rotationZ = cropState.rotation
+                                    translationX = cropState.offset.x * scaleFromCanvas
+                                    translationY = cropState.offset.y * scaleFromCanvas
+                                }
+                        )
+                    } else if (videoUri != null) {
                         AndroidView(
                             factory = { ctx ->
                                 PlayerView(ctx).apply {
@@ -319,8 +351,9 @@ fun VideoEditorScreen(
                                 .graphicsLayer {
                                     scaleX = cropState.scale
                                     scaleY = cropState.scale
-                                    translationX = cropState.offset.x
-                                    translationY = cropState.offset.y
+                                    rotationZ = cropState.rotation
+                                    translationX = cropState.offset.x * scaleFromCanvas
+                                    translationY = cropState.offset.y * scaleFromCanvas
                                 }
                         )
                     }
@@ -438,6 +471,31 @@ fun VideoEditorScreen(
                             }
                         }
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        AnimatedExportProfile.entries.forEach { profile ->
+                            val label = when (profile) {
+                                AnimatedExportProfile.FLUID -> stringResource(R.string.animated_profile_fluid)
+                                AnimatedExportProfile.BALANCED -> stringResource(R.string.animated_profile_balanced)
+                                AnimatedExportProfile.SHARP -> stringResource(R.string.animated_profile_sharp)
+                            }
+                            TextButton(
+                                modifier = Modifier.weight(1f),
+                                onClick = { viewModel.setExportProfile(profile) }
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (profile == exportProfile) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = if (profile == exportProfile) FontWeight.Bold else FontWeight.Normal,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    }
                     
                     Spacer(modifier = Modifier.height(8.dp))
 
@@ -484,6 +542,40 @@ fun VideoEditorScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GifTrimPreview(uri: android.net.Uri, trimRange: LongRange, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var frame by remember(uri) { mutableStateOf<Bitmap?>(null) }
+    val latestRange by rememberUpdatedState(trimRange)
+    LaunchedEffect(uri) {
+        withContext(Dispatchers.IO) {
+            AnimatedStickerExporter.GifSource(context, uri).use { source ->
+                val step = (1000f / source.frameRate).toLong().coerceAtLeast(8L)
+                var position = latestRange.first
+                while (isActive) {
+                    val range = latestRange
+                    if (position < range.first || position >= range.last) position = range.first
+                    val nextFrame = source.frameAt(position)
+                    withContext(Dispatchers.Main) {
+                        val previous = frame
+                        frame = nextFrame
+                        if (previous !== nextFrame) previous?.recycle()
+                    }
+                    position += step
+                    if (position >= latestRange.last) position = latestRange.first
+                    delay(step)
+                }
+            }
+        }
+    }
+    DisposableEffect(uri) {
+        onDispose { frame?.recycle(); frame = null }
+    }
+    frame?.let { bitmap ->
+        Image(bitmap = bitmap.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = modifier)
     }
 }
 

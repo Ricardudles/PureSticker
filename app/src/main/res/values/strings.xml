@@ -36,6 +36,9 @@
     <string name="static_sticker_desc">Image Sticker</string>
     <string name="animated_sticker">Animated</string>
     <string name="animated_sticker_desc">Video/GIF Sticker</string>
+    <string name="animated_profile_fluid">Smoother</string>
+    <string name="animated_profile_balanced">Balanced</string>
+    <string name="animated_profile_sharp">Sharper</string>
     <string name="animated_badge">ANIM</string>
 
     <!-- Package Selection Screen -->

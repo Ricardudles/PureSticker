@@ -57,6 +57,10 @@ class StickerRepositoryImpl @Inject constructor(
         stickerDao.insertSticker(sticker)
     }
 
+    override suspend fun insertStickerAndUpdatePackage(sticker: Sticker, stickerPackage: StickerPackage) {
+        stickerDao.insertStickerAndUpdatePackage(sticker, stickerPackage)
+    }
+
     override suspend fun deleteStickerPackage(packageId: Int) {
         stickerDao.deleteStickerPackage(packageId)
     }

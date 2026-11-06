@@ -27,6 +27,8 @@ interface StickerRepository {
 
     suspend fun insertSticker(sticker: Sticker)
 
+    suspend fun insertStickerAndUpdatePackage(sticker: Sticker, stickerPackage: StickerPackage)
+
     suspend fun deleteStickerPackage(packageId: Int)
 
     suspend fun deleteSticker(stickerId: Int)

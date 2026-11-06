@@ -7,25 +7,20 @@ import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.transformer.Composition
-import androidx.media3.transformer.EditedMediaItem
-import androidx.media3.transformer.ExportException
-import androidx.media3.transformer.ExportResult
-import androidx.media3.transformer.Transformer
 import com.example.wppsticker.ui.editor.TextData
 import com.example.wppsticker.nav.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,12 +28,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.isActive
 import java.io.File
-import java.io.FileOutputStream
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Stack
-import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.max
 
@@ -52,6 +46,9 @@ class VideoEditorViewModel @Inject constructor(
     // --- VIDEO STATE ---
     private val _videoUri = MutableStateFlow<Uri?>(null)
     val videoUri: StateFlow<Uri?> = _videoUri.asStateFlow()
+
+    private val _isGif = MutableStateFlow(false)
+    val isGif: StateFlow<Boolean> = _isGif.asStateFlow()
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -108,13 +105,14 @@ class VideoEditorViewModel @Inject constructor(
     private val _canRedo = MutableStateFlow(false)
     val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
 
+    private val _exportProfile = MutableStateFlow(AnimatedExportProfile.BALANCED)
+    val exportProfile: StateFlow<AnimatedExportProfile> = _exportProfile.asStateFlow()
+    private var exportJob: Job? = null
+
     // --- PLAYER ---
     var player: ExoPlayer? = null
         private set
         
-    // Transformer for video processing
-    private var transformer: Transformer? = null
-
     val packageIdArg: Int = savedStateHandle.get<Int>("packageId") ?: -1
 
     init {
@@ -122,8 +120,14 @@ class VideoEditorViewModel @Inject constructor(
         if (uriString != null) {
             val uri = Uri.parse(uriString)
             _videoUri.value = uri
-            initializePlayer(uri)
-            generateThumbnails(uri)
+            val mimeType = context.contentResolver.getType(uri).orEmpty()
+            val gif = mimeType.equals("image/gif", ignoreCase = true) ||
+                uri.lastPathSegment?.substringBefore('?')?.endsWith(".gif", ignoreCase = true) == true
+            _isGif.value = gif
+            if (gif) initializeGif(uri) else {
+                initializePlayer(uri)
+                generateThumbnails(uri)
+            }
         }
     }
 
@@ -267,6 +271,25 @@ class VideoEditorViewModel @Inject constructor(
         }
     }
 
+    private fun initializeGif(uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
+        try {
+            AnimatedStickerExporter.GifSource(context, uri).use { gif ->
+                _videoDuration.value = gif.durationMs
+                _trimRange.value = 0L..minOf(gif.durationMs, AnimatedStickerExporter.MAX_DURATION_MS)
+                val thumbs = (0..7).mapNotNull { index ->
+                    val time = gif.durationMs * index / 8
+                    runCatching { gif.frameAt(time) }.getOrNull()?.let { bitmap ->
+                        Bitmap.createScaledBitmap(bitmap, 96, 96, true).also { bitmap.recycle() }
+                    }
+                }
+                _thumbnails.value = thumbs
+            }
+        } catch (e: Exception) {
+            Log.e("VideoEditor", "Could not inspect GIF", e)
+            _processingMessage.value = "Não foi possível ler este GIF: ${e.localizedMessage}"
+        }
+    }
+
     // --- GESTURE HELPERS ---
     private var isGestureInProgress = false
 
@@ -282,11 +305,12 @@ class VideoEditorViewModel @Inject constructor(
     }
 
     fun updateTrimRange(startMs: Long, endMs: Long) {
-        val safeStart = startMs.coerceAtLeast(0)
-        val safeEnd = endMs.coerceAtMost(_videoDuration.value)
-        
-        // Validate Min Duration (e.g. 500ms)
-        if (safeEnd - safeStart < 500) return 
+        val duration = _videoDuration.value
+        val safeStart = startMs.coerceIn(0, duration)
+        val maximumEnd = minOf(duration, safeStart + AnimatedStickerExporter.MAX_DURATION_MS)
+        if (maximumEnd - safeStart < 16L) return
+        val safeEnd = endMs.coerceIn(safeStart + 16L, maximumEnd)
+        if (safeEnd <= safeStart) return
         
         _trimRange.value = safeStart..safeEnd
         
@@ -297,6 +321,10 @@ class VideoEditorViewModel @Inject constructor(
     fun onTrimChangeFinished() {
         pushToUndoStack()
     }
+
+    fun setExportProfile(profile: AnimatedExportProfile) {
+        _exportProfile.value = profile
+    }
     
     // Captures state BEFORE modification
     fun onTrimChangeStarted() {
@@ -304,7 +332,7 @@ class VideoEditorViewModel @Inject constructor(
     }
 
     // --- CROP LOGIC ---
-    fun updateCropState(offset: Offset? = null, scale: Float? = null) {
+    fun updateCropState(offset: Offset? = null, scale: Float? = null, rotation: Float? = null) {
         // Relies on onGestureStart called before this
         _cropState.update { current ->
             var newScale = current.scale * (scale ?: 1f)
@@ -312,7 +340,7 @@ class VideoEditorViewModel @Inject constructor(
             
             val newOffset = current.offset + (offset ?: Offset.Zero)
             
-            current.copy(offset = newOffset, scale = newScale)
+            current.copy(offset = newOffset, scale = newScale, rotation = current.rotation + (rotation ?: 0f))
         }
     }
 
@@ -373,123 +401,61 @@ class VideoEditorViewModel @Inject constructor(
         _showGrid.value = show
     }
 
-    // --- SAVE LOGIC (Media3 Transformer) ---
-    @OptIn(UnstableApi::class)
-    fun onSave() = viewModelScope.launch {
-        _isBusy.value = true
-        _processingMessage.value = "Processing video..."
-        
-        val uri = _videoUri.value
-        if (uri == null) {
-            _isBusy.value = false
-            return@launch
-        }
-
-        try {
-            // Output file (MP4 for now, since Transformer doesn't support WebP directly)
-            // We will need a separate converter for WebP if strictly required, or rely on coil-video for playback.
-            val outputFile = File(context.filesDir, "${UUID.randomUUID()}.mp4")
-            
-            val startMs = _trimRange.value.first
-            val endMs = _trimRange.value.last
-            
-            // MediaItem with Clipping
-            val mediaItem = MediaItem.Builder()
-                .setUri(uri)
-                .setClippingConfiguration(
-                    MediaItem.ClippingConfiguration.Builder()
-                        .setStartPositionMs(startMs)
-                        .setEndPositionMs(endMs)
-                        .build()
-                )
-                .build()
-
-            // Note: Crop/Scale/Text overlays are harder with Transformer basic setup.
-            // We are prioritizing BUILD SUCCESS over full feature parity right now.
-            // Basic trim and transcode will work.
-            
-            val transformerBuilder = Transformer.Builder(context)
-                .addListener(object : Transformer.Listener {
-                    override fun onCompleted(composition: Composition, exportResult: ExportResult) {
-                        Log.d("Transformer", "Success")
-                        val encodedUri = URLEncoder.encode(Uri.fromFile(outputFile).toString(), StandardCharsets.UTF_8.toString())
-                        
-                        // Fix route param
-                        var route = "${Screen.SaveSticker.name}/$encodedUri"
-                        if (packageIdArg != -1) {
-                            route += "?packageId=$packageIdArg"
-                        } else {
-                             route += "?packageId=-1"
-                        }
-                        
-                        _navigateToSave.value = route
-                        _isBusy.value = false
-                    }
-
-                    override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
-                        Log.e("Transformer", "Failed", exportException)
-                        _processingMessage.value = "Error: ${exportException.localizedMessage}"
-                        _isBusy.value = false
-                    }
-                })
-                
-            transformer = transformerBuilder.build()
-            transformer?.start(mediaItem, outputFile.absolutePath)
-
-        } catch (e: Exception) {
-            Log.e("VideoEditor", "Error preparing save", e)
-            _isBusy.value = false
-            _processingMessage.value = "Error: ${e.message}"
+    // Decode source frames and encode a validated animated WebP with libwebp.
+    fun onSave() {
+        if (_isBusy.value) return
+        exportJob = viewModelScope.launch {
+            _isBusy.value = true
+            _processingMessage.value = "Preparando WebP animado..."
+            val uri = _videoUri.value ?: run { _isBusy.value = false; return@launch }
+            val exportContext = kotlin.coroutines.coroutineContext
+            var result: AnimatedExportResult? = null
+            try {
+                result = withContext(Dispatchers.IO) {
+                    val outputDirectory = File(context.cacheDir, "animated-sticker-export").apply { mkdirs() }
+                    AnimatedStickerExporter.export(
+                        context = context,
+                        source = uri,
+                        isGif = _isGif.value,
+                        trimStartMs = _trimRange.value.first,
+                        trimEndMs = _trimRange.value.last,
+                        crop = _cropState.value,
+                        texts = _texts.value,
+                        profile = _exportProfile.value,
+                        outputDirectory = outputDirectory,
+                        onProgress = { _processingMessage.value = it },
+                        isCancelled = { !exportContext.isActive }
+                    )
+                }
+                val output = result ?: error("A exportação não retornou um arquivo.")
+                val encodedUri = URLEncoder.encode(Uri.fromFile(output.file).toString(), StandardCharsets.UTF_8.toString())
+                _processingMessage.value = "WebP animado pronto · ${output.sizeBytes / 1024} KiB · ${output.frameRate} fps"
+                _navigateToSave.value = "${Screen.SaveSticker.name}/$encodedUri?packageId=$packageIdArg&isAnimated=true"
+            } catch (e: CancellationException) {
+                result?.file?.delete()
+                throw e
+            } catch (e: Exception) {
+                Log.e("VideoEditor", "Could not export animated WebP", e)
+                _processingMessage.value = e.localizedMessage ?: "Falha ao criar WebP animado."
+            } finally {
+                _isBusy.value = false
+            }
         }
     }
 
-    @OptIn(UnstableApi::class)
     fun cancelSave() {
-        transformer?.cancel()
+        exportJob?.cancel()
         _isBusy.value = false
         _processingMessage.value = null
     }
 
-    // ... (Helper functions like copyContentUriToCache can remain if needed, but Transformer takes Uri directly)
-    
-    private fun copyContentUriToCache(uri: Uri): File {
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val file = File(context.cacheDir, "temp_input_${UUID.randomUUID()}.mp4")
-        inputStream?.use { input ->
-            FileOutputStream(file).use { output ->
-                input.copyTo(output)
-            }
-        }
-        return file
-    }
-    
-    private fun getVideoDimensions(file: File): Pair<Int, Int> {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(file.absolutePath)
-            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
-            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-            val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
-            if (rotation == 90 || rotation == 270) {
-                height to width
-            } else {
-                width to height
-            }
-        } catch (e: Exception) {
-            0 to 0
-        } finally {
-            retriever.release()
-        }
-    }
-    
     fun onNavigatedToSave() {
         _navigateToSave.value = null
     }
 
-    @OptIn(UnstableApi::class)
     override fun onCleared() {
         super.onCleared()
         player?.release()
-        transformer?.cancel()
+        exportJob?.cancel()
     }
 }

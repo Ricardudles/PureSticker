@@ -19,6 +19,12 @@ interface StickerDao {
     @Insert
     suspend fun insertSticker(sticker: Sticker)
 
+    @Transaction
+    suspend fun insertStickerAndUpdatePackage(sticker: Sticker, stickerPackage: StickerPackage) {
+        insertSticker(sticker)
+        updateStickerPackage(stickerPackage)
+    }
+
     @Query("SELECT * FROM sticker_packages")
     fun getStickerPackages(): Flow<List<StickerPackage>>
 

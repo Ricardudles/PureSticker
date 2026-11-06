@@ -20,9 +20,12 @@ import com.example.wppsticker.domain.usecase.CreateStickerPackageUseCase
 import com.example.wppsticker.domain.usecase.GetStickerPackagesUseCase
 import com.example.wppsticker.domain.usecase.GetStickerPackageWithStickersUseCase
 import com.example.wppsticker.domain.usecase.UpdateStickerPackageUseCase
+import com.example.wppsticker.domain.usecase.SaveStickerAndPackageUseCase
+import com.example.wppsticker.ui.videoeditor.AnimatedWebpNative
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +58,7 @@ class SaveStickerViewModel @Inject constructor(
     private val createStickerPackageUseCase: CreateStickerPackageUseCase,
     private val addStickerUseCase: AddStickerUseCase,
     private val updateStickerPackageUseCase: UpdateStickerPackageUseCase,
+    private val saveStickerAndPackageUseCase: SaveStickerAndPackageUseCase,
     private val getStickerPackageWithStickersUseCase: GetStickerPackageWithStickersUseCase,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -193,8 +197,16 @@ class SaveStickerViewModel @Inject constructor(
         _loadingMessage.value = context.getString(R.string.analyzing_image)
 
         withContext(Dispatchers.IO) {
+            var importedSourceFile: File? = null
             try {
-                val sourceFile = File(stickerUri.path!!)
+                val sourceFile = if (stickerUri.scheme == "file") File(stickerUri.path!!) else {
+                    val imported = File(context.cacheDir, "selected-${UUID.randomUUID()}")
+                    context.contentResolver.openInputStream(stickerUri)?.use { input ->
+                        imported.outputStream().use { output -> input.copyTo(output) }
+                    } ?: throw IllegalArgumentException("Não foi possível ler a figurinha selecionada.")
+                    imported
+                }
+                if (stickerUri.scheme != "file") importedSourceFile = sourceFile
                 if (!sourceFile.exists()) {
                      _events.emit(SaveStickerEvent.ShowToast("Source sticker file not found"))
                      return@withContext
@@ -216,16 +228,23 @@ class SaveStickerViewModel @Inject constructor(
                 
                 // Explicit cast to avoid ambiguity if any
                 val pkg = stickerPackage as com.example.wppsticker.data.local.StickerPackage
+                val sourceIsAnimatedWebp = AnimatedWebpNative.isValidAnimatedWebp(sourceFile.absolutePath)
+                if (sourceIsAnimatedWebp && !pkg.animated) {
+                    _events.emit(SaveStickerEvent.ShowToast("GIFs e vídeos só podem ser salvos em pacotes animados."))
+                    return@withContext
+                }
                 if (pkg.animated) { // Use renamed property
                     saveAnimatedSticker(stickerPackage, emojiList, sourceFile, fileHash)
                 } else {
                     saveStaticSticker(stickerPackage, emojiList, sourceFile, fileHash)
                 }
-
+            } catch (e: CancellationException) {
+                throw e
             } catch(e: Exception) {
                 Log.e(TAG, "Error saving sticker", e)
                 _events.emit(SaveStickerEvent.ShowToast(context.getString(R.string.error_saving, e.message)))
             } finally {
+                importedSourceFile?.delete()
                 _loadingMessage.value = null
             }
         }
@@ -233,43 +252,79 @@ class SaveStickerViewModel @Inject constructor(
 
     private suspend fun saveAnimatedSticker(stickerPackage: StickerPackage, emojis: List<String>, sourceFile: File, fileHash: String) {
         _loadingMessage.value = context.getString(R.string.processing_sticker)
-        
-        // 1. Size Check (< 500KB)
-        val sizeKb = sourceFile.length() / 1024
-        if (sizeKb > 500) {
-            _events.emit(SaveStickerEvent.ShowToast("Animated sticker is too large (${sizeKb}KB). Max 500KB."))
-            return
-        }
+        var generatedWebp: File? = null
+        var destinationTemp: File? = null
+        var destination: File? = null
+        var firstFrame: Bitmap? = null
+        var updatedPackageForCleanup: StickerPackage? = null
+        var committed = false
+        try {
+            val animatedSource = if (AnimatedWebpNative.isValidAnimatedWebp(sourceFile.absolutePath)) {
+                sourceFile
+            } else {
+                val bitmap = BitmapFactory.decodeFile(sourceFile.absolutePath)
+                    ?: throw IllegalArgumentException("O arquivo não é um WebP animado válido nem uma imagem estática compatível.")
+                firstFrame = bitmap
+                val normalized = normalizeToStickerCanvas(bitmap)
+                generatedWebp = File(context.cacheDir, "static-animated-${UUID.randomUUID()}.webp")
+                val muxed = AnimatedWebpNative.encodeStaticTwoFrames(normalized, generatedWebp!!.absolutePath)
+                if (normalized !== bitmap) normalized.recycle()
+                if (!muxed) throw IllegalStateException("Não foi possível montar dois quadros WebP para o pacote animado.")
+                generatedWebp!!
+            }
+            val sizeBytes = animatedSource.length()
+            if (sizeBytes > 512_000L) {
+                _events.emit(SaveStickerEvent.ShowToast("A figurinha excede 500 KiB (limite de 512.000 bytes)."))
+                return
+            }
+            if (!AnimatedWebpNative.isValidAnimatedWebp(animatedSource.absolutePath)) {
+                throw IllegalArgumentException("A validação WebP falhou: dimensão, quadros ou duração fora dos limites.")
+            }
+            firstFrame = firstFrame ?: AnimatedWebpNative.decodeFirstFrame(animatedSource.absolutePath)
+                ?: decodeFirstFrame(animatedSource)
+                ?: throw IllegalArgumentException("Não foi possível decodificar o primeiro quadro para o ícone do pacote.")
 
-        // 2. Copy File
-        val finalFileName = "${UUID.randomUUID()}.webp"
-        val destinationFile = File(context.filesDir, finalFileName)
-        sourceFile.copyTo(destinationFile, overwrite = true)
-        
-        // 3. Add to DB
-        val sticker = Sticker(
-            packageId = stickerPackage.id,
-            imageFile = finalFileName,
-            imageFileHash = fileHash,
-            emojis = emojis,
-            width = 512,
-            height = 512,
-            sizeInKb = sizeKb
-        )
-        addStickerUseCase(sticker)
-
-        // 4. Tray Icon & Version Update
-        val bitmap = decodeFirstFrame(sourceFile)
-        if (bitmap == null) {
-            _events.emit(SaveStickerEvent.ShowToast("Could not decode animated sticker to create tray icon."))
-            // Clean up created sticker file if tray icon fails
-            destinationFile.delete()
-            return
+            val updatedPackage = buildUpdatedPackage(stickerPackage, firstFrame!!)
+            updatedPackageForCleanup = updatedPackage
+            if (updatedPackage.trayImageFile.isBlank()) {
+                throw IllegalStateException("Não foi possível criar o ícone do pacote.")
+            }
+            val finalFileName = "${UUID.randomUUID()}.webp"
+            destination = File(context.filesDir, finalFileName)
+            destinationTemp = File(context.filesDir, "$finalFileName.tmp")
+            animatedSource.copyTo(destinationTemp!!, overwrite = true)
+            if (!AnimatedWebpNative.isValidAnimatedWebp(destinationTemp!!.absolutePath) ||
+                destinationTemp!!.length() != sizeBytes || !destinationTemp!!.renameTo(destination!!)) {
+                throw IllegalStateException("Não foi possível validar e instalar o arquivo WebP final.")
+            }
+            val sticker = Sticker(
+                packageId = stickerPackage.id,
+                imageFile = finalFileName,
+                imageFileHash = fileHash,
+                emojis = emojis,
+                width = 512,
+                height = 512,
+                sizeInKb = (sizeBytes + 1023L) / 1024L
+            )
+            saveStickerAndPackageUseCase(sticker, updatedPackage)
+            committed = true
+            if (sourceFile.parentFile == File(context.cacheDir, "animated-sticker-export")) sourceFile.delete()
+            _saveFinished.value = true
+        } catch (e: CancellationException) {
+            destination?.delete()
+            throw e
+        } catch (e: Exception) {
+            destination?.delete()
+            _events.emit(SaveStickerEvent.ShowToast(e.localizedMessage ?: "Falha ao validar WebP animado."))
+        } finally {
+            destinationTemp?.delete()
+            generatedWebp?.delete()
+            if (!committed && stickerPackage.trayImageFile.isBlank()) {
+                updatedPackageForCleanup?.trayImageFile?.takeIf(String::isNotBlank)
+                    ?.let { File(context.filesDir, it).delete() }
+            }
+            firstFrame?.recycle()
         }
-        
-        updateTrayIconAndVersion(stickerPackage, bitmap)
-        
-        _saveFinished.value = true
     }
     
     private suspend fun saveStaticSticker(stickerPackage: StickerPackage, emojis: List<String>, sourceFile: File, fileHash: String) {
@@ -315,6 +370,10 @@ class SaveStickerViewModel @Inject constructor(
     }
     
     private suspend fun updateTrayIconAndVersion(stickerPackage: StickerPackage, sourceBitmap: Bitmap?) {
+        updateStickerPackageUseCase(buildUpdatedPackage(stickerPackage, sourceBitmap))
+    }
+
+    private suspend fun buildUpdatedPackage(stickerPackage: StickerPackage, sourceBitmap: Bitmap?): StickerPackage {
         // Increment version
         val currentVersion = stickerPackage.imageDataVersion.toIntOrNull() ?: 1
         val newVersion = (currentVersion + 1).toString()
@@ -342,7 +401,21 @@ class SaveStickerViewModel @Inject constructor(
             }
         }
         
-        updateStickerPackageUseCase(updatedPackage)
+        return updatedPackage
+    }
+
+    private fun normalizeToStickerCanvas(bitmap: Bitmap): Bitmap {
+        if (bitmap.width == 512 && bitmap.height == 512) return bitmap
+        val canvasBitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(canvasBitmap)
+        val scale = minOf(512f / bitmap.width, 512f / bitmap.height)
+        val width = bitmap.width * scale
+        val height = bitmap.height * scale
+        val left = (512f - width) / 2f
+        val top = (512f - height) / 2f
+        canvas.drawBitmap(bitmap, null, android.graphics.RectF(left, top, left + width, top + height),
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG))
+        return canvasBitmap
     }
 
     private fun decodeFirstFrame(file: File): Bitmap? {

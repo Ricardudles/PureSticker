@@ -36,6 +36,9 @@
     <string name="static_sticker_desc">Figurinha de Imagem</string>
     <string name="animated_sticker">Animada</string>
     <string name="animated_sticker_desc">Figurinha de Vídeo/GIF</string>
+    <string name="animated_profile_fluid">Mais fluida</string>
+    <string name="animated_profile_balanced">Equilibrada</string>
+    <string name="animated_profile_sharp">Mais nítida</string>
     <string name="animated_badge">ANIM</string>
 
     <!-- Package Selection Screen -->

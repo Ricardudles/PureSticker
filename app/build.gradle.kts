@@ -8,6 +8,7 @@ plugins {
 
 android {
     namespace = "com.example.wppsticker"
+    ndkVersion = "29.0.14206865"
     compileSdk = 35
 
     defaultConfig {
@@ -18,6 +19,10 @@ android {
         versionName = "1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
+        externalNativeBuild {
+            cmake { arguments += "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON" }
+        }
     }
 
     buildTypes {
@@ -41,8 +46,15 @@ android {
         compose = true
     }
     packaging {
+        jniLibs { useLegacyPackaging = false }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
         }
     }
 }
@@ -88,6 +100,9 @@ dependencies {
 
     // Media3 / ExoPlayer (Bundle)
     implementation(libs.bundles.media3)
+
+    // Sequential GIF frame decoding for animated WebP export (API 26+)
+    implementation(libs.glide.gifdecoder)
 
     // ML Kit
     implementation(libs.mlkit.segmentation.selfie)

@@ -6,7 +6,8 @@ Aplicativo Android nativo para criação e gerenciamento de pacotes de figurinha
 
 - [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md) — referência técnica principal, baseada no código atual; arquitetura, navegação, persistência, mídia, provider e investigação de problemas.
 - [`PROJECT_CONTEXT_PROMPT.md`](PROJECT_CONTEXT_PROMPT.md) — resumo curto para contexto de assistência.
-- `PROJECT_DOCUMENTATION.md`, `BUILD_FIX_PLAN.md`, `IMPROVEMENTS.md` e `PLAN_ANIMATED_STICKERS.md` — registros e planos históricos. Podem conter decisões já superadas; confirmar sempre no código e no guia atual.
+- `PLAN_ANIMATED_STICKERS.md` — decisões executadas, versões e limitações/testes restantes do fluxo animado atual.
+- `PROJECT_DOCUMENTATION.md`, `BUILD_FIX_PLAN.md` e `IMPROVEMENTS.md` — registros históricos; confirmar decisões no código e no guia atual.
 
 ## Projeto
 

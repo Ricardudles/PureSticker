@@ -21,7 +21,7 @@ O código está organizado por responsabilidade, sem módulos Gradle separados:
 - `nav/`: enumeração de destinos e grafo Compose.
 - `util/`: processamento/limpeza de imagem, remoção de fundo e estado genérico de UI.
 
-Stack efetivamente declarada: Kotlin, Compose Material3, Navigation Compose, Hilt com KSP, Room com KSP, Coil, Android Image Cropper, Gson, Media3 e ML Kit Selfie Segmentation. FFmpegKit e os arquivos experimentais de engine foram removidos da árvore de trabalho. Repositórios Gradle: Google, Maven Central, JitPack e JCenter (este último é legado e merece atenção em problemas de resolução).
+Stack efetivamente declarada: Kotlin 2.2.10, Compose Material3, Navigation Compose, Hilt 2.60.1 com KSP 2.3.10, Room, Coil, Android Image Cropper, Gson, Media3 1.3.1, ML Kit Selfie Segmentation e `com.github.bumptech.glide:gifdecoder:4.16.0`. A geração animada usa libwebp 1.6.0 vendorizado e JNI sob `app/src/main/cpp`. FFmpegKit não é usado. Repositórios Gradle: Google, Maven Central, JitPack e JCenter (este último é legado e merece atenção em problemas de resolução).
 
 ## 3. Persistência e arquivos
 
@@ -32,8 +32,8 @@ Room está definido em `data/local` (`AppDatabase`, versão 7; `StickerDao`, ent
 ### Acompanhamentos futuros
 
 - Substituir a migração destrutiva por migrações Room compatíveis, depois de confirmar os schemas já distribuídos e cobrir upgrades com testes de migração.
-- Validar no dispositivo Android a criação/edição/salvamento de stickers estáticos, integração com WhatsApp e exportação/restauração de backup. O build e lint não comprovam esses fluxos de ponta a ponta.
-- Planejar a criação de figurinhas animadas como um bloco novo; o experimento FFmpeg anterior foi descartado e não deve ser reativado sem validar codec WebP animado, limites e compatibilidade do WhatsApp.
+- Validar no dispositivo Android a criação/edição/salvamento de stickers estáticos, integração com WhatsApp, backup e restauração. O build e lint não comprovam esses fluxos de ponta a ponta.
+- Concluir a validação em aparelho da exportação animada; ver limitações e cobertura pendente em [`PLAN_ANIMATED_STICKERS.md`](../PLAN_ANIMATED_STICKERS.md).
 
 Imagens de bandeja e stickers são arquivos privados em `context.filesDir`; registros Room guardam os nomes dos arquivos. `CleanOrphanFilesUseCase`/utilitários comparam os arquivos existentes com os nomes referenciados. Ao adicionar/remover/restaurar dados, considere consistência entre arquivo e banco e remoção de temporários no caminho de erro.
 
@@ -46,7 +46,7 @@ Imagens de bandeja e stickers são arquivos privados em `context.filesDir`; regi
 Fluxos principais observados:
 
 1. Home lista pacotes e permite criar, apagar, abrir ou enviar pacote ao WhatsApp.
-2. Seleção de tipo inicia seleção de mídia; imagem segue para editor estático e vídeo para editor de vídeo.
+2. Seleção de tipo inicia seleção de mídia; imagem segue para editor estático e vídeo/GIF segue para editor animado.
 3. Editores recebem URI e, opcionalmente, `packageId` para adicionar a pacote existente. Após editar, navegam à etapa de salvar.
 4. Salvar sticker permite escolher/criar pacote e persistir a mídia. Emojis são opcionais na tela; sem escolha, `StickerEmojiPolicy` aplica 🙂 ao salvar, pois o validador Android oficial do WhatsApp exige pelo menos 1 e aceita até 3 emojis por sticker. O limite de três continua aplicado.
 5. Detalhes do pacote editam metadados, removem stickers e enviam o pacote ao WhatsApp.
@@ -60,11 +60,13 @@ Para entender uma ação de UI, siga: Composable → ViewModel → UseCase/Repos
 
 `EditorScreen` e `EditorViewModel` mantêm o estado de edição (`EditorState`, `ImageState`, `TextData`). A implementação oferece crop, texto com formatação, posicionamento/transformação, snap/grid, undo/redo e remoção de fundo por `BackgroundRemover` (ML Kit). `ImageHelper` oferece redimensionamento. Confirme o formato e dimensões da saída em `SaveStickerViewModel` e nos helpers antes de mexer em compatibilidade/tamanho.
 
-### Vídeo/animado
+### Vídeo/GIF e WebP animado
 
-`VideoEditorScreen` e `VideoEditorViewModel` mantêm trim, crop, reprodução, texto, grade, histórico e estado de gravação. O código atual do editor de vídeo usa o fluxo que já existia no commit base: Media3 Transformer exporta um arquivo de vídeo MP4 para a etapa de salvar. Isso não equivale a um sticker animado WebP aceito pelo WhatsApp. A tentativa experimental de FFmpeg foi removida sem validação; planeje essa capacidade como um bloco futuro independente.
+`VideoEditorScreen` e `VideoEditorViewModel` mantêm preview em loop, seleção de trecho de até 10 segundos, enquadramento, zoom, rotação, texto, grade, undo/redo e seleção do perfil de saída. GIF é lido quadro a quadro por `AnimatedStickerExporter.GifSource` usando o decoder standalone do Glide; preview GIF acompanha o trecho selecionado. Para vídeo, o preview continua em ExoPlayer/Media3.
 
-Media3 permanece nas dependências e no fluxo de edição/exportação de vídeo existente.
+`AnimatedStickerExporter` renderiza quadros 512×512, aplica enquadramento e texto e tenta combinações de FPS/qualidade. O critério de tamanho usa cada WebP realmente codificado, com limite de 512.000 bytes. A codificação de animação e muxagem usam `AnimatedWebpNative`/`animated_webp_jni.cpp` e libwebp 1.6.0. `MediaMetadataRetriever` ainda é usado para buscar quadros de vídeo; sua precisão para VFR e HDR precisa ser substituída/validada antes do lançamento. Transformer MP4 não é usado na saída. Consulte [`PLAN_ANIMATED_STICKERS.md`](../PLAN_ANIMATED_STICKERS.md) para versões, validações concluídas e bloqueios de qualidade restantes.
+
+Ao salvar em pacote animado, `SaveStickerViewModel` valida novamente RIFF/WebP, 512×512, tipo animado, contagem/duração dos quadros e limite de bytes via libwebp demuxer. Uma imagem estática é muxada em dois quadros iguais (`WebPMux`), sem depender do `WebPAnimEncoder` que pode mesclá-los. Arquivo final e atualização Room são ordenados para evitar pacote com registro parcial. A transação Room não altera o schema atual.
 
 ## 6. WhatsApp ContentProvider
 
@@ -92,7 +94,7 @@ ViewModels anotados com `@HiltViewModel` recebem dependências por construtor e 
 - Dados que não atualizam: entidade/DAO → interface de repositório → implementação → módulo Hilt → UseCase → coleta de Flow na tela.
 - Arquivo faltando/corrompido: gravação no ViewModel/UseCase, `filesDir`, registro Room, limpeza de órfãos e restauração.
 - WhatsApp não reconhece pacote: manifesto, `StickerContentProvider`, autoridade, schema dos cursores, nomes dos assets, whitelist e intent.
-- Exportação de vídeo: `VideoEditorViewModel`, Transformer do Media3, URI de origem e arquivo gerado. Isso não confirma geração de sticker WebP animado.
+- Exportação animada: `VideoEditorViewModel` → `AnimatedStickerExporter` → `AnimatedWebpNative` (JNI/libwebp) → validação e persistência em `SaveStickerViewModel`; consulte também o plano atualizado para limitações de VFR/HDR e validação WhatsApp ainda pendente.
 - Migração Room: versão atual 7, entidades, `Converters` e configuração de migrações em `DatabaseModule`; preserve dados de instalações existentes.
 - Dependências falham: catálogo de versões, repositórios em `settings.gradle.kts` e JitPack/JCenter.
 
@@ -111,5 +113,5 @@ Execute apenas os comandos necessários à tarefa. Os comandos acima são refer�
 
 ## Estado da revisão (06/11/2026)
 
-`assembleDebug`, `testDebugUnitTest` e `lintDebug` passaram nesta revisão após as correções de compatibilidade API 26, opt-in Media3 e seleção opcional de emojis. Os testes unitários incluem o fallback de emoji. Lint ainda reporta avisos, e AGP/Gradle reporta opções depreciadas. A restauração de backup valida nomes de mídia, evita colisões e exige que os arquivos referenciados estejam presentes. Isso não substitui teste manual de restore/WhatsApp em dispositivo.
+Em 06/11/2026, após integrar a geração WebP animada, passaram `assembleDebug`, `testDebugUnitTest`, `compileDebugAndroidTestKotlin`, `lintDebug` e `externalNativeBuildDebug` para três ABIs. `connectedDebugAndroidTest` passou no AVD API 36.1, incluindo testes de muxagem de quadros duplicados e codificação de dois quadros diferentes. `llvm-readelf` confirmou segmentos LOAD com alinhamento 16 KiB nas bibliotecas de 64 bits; `zipalign -c -P 16 4 app-debug.apk` passou. Ainda não foi validado em Android API 26, aparelho físico, WhatsApp, HDR/VFR ou sistema efetivamente configurado com páginas de 16 KiB. Há avisos existentes de APIs/opções depreciadas no projeto.
 
