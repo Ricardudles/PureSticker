@@ -612,74 +612,144 @@ fun VideoEditorScreen(
                         tonalElevation = 8.dp,
                         shadowElevation = 18.dp
                     ) {
+                        val selectedClipDurationMs = (trimRange.last - trimRange.first).coerceAtLeast(0L)
+                        val progressFraction = if (exportProgress.totalFrames > 0) {
+                            (exportProgress.frame.toFloat() / exportProgress.totalFrames).coerceIn(0f, 1f)
+                        } else {
+                            null
+                        }
+                        val progressPercent = progressFraction?.let { (it * 100).toInt() }
+                        val reportedSize = exportProgress.candidateSizeBytes.takeIf { it > 0L }
+                            ?: exportProgress.previousCandidateSizeBytes
+                        val isLastCandidateOversized = reportedSize > AnimatedStickerExporter.MAX_BYTES
+                        val profileLabel = when (exportProfile) {
+                            AnimatedExportProfile.FLUID -> stringResource(R.string.animated_profile_fluid)
+                            AnimatedExportProfile.BALANCED -> stringResource(R.string.animated_profile_balanced)
+                            AnimatedExportProfile.SHARP -> stringResource(R.string.animated_profile_sharp)
+                        }
                         Column(
-                            modifier = Modifier.padding(24.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                            modifier = Modifier
+                                .heightIn(max = 640.dp)
+                                .verticalScroll(rememberScrollState())
+                                .padding(22.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            Text(
-                                stringResource(R.string.animated_export_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                                if (progressFraction == null) {
+                                    CircularProgressIndicator(modifier = Modifier.size(38.dp), strokeWidth = 3.dp)
+                                } else {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(38.dp)) {
+                                        CircularProgressIndicator(
+                                            progress = { progressFraction },
+                                            modifier = Modifier.fillMaxSize(),
+                                            strokeWidth = 3.dp
+                                        )
+                                        Text("${progressPercent}%", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(
+                                        stringResource(R.string.animated_export_title),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = when (exportProgress.stage) {
+                                            AnimatedExportStage.PREPARING -> stringResource(R.string.animated_export_preparing)
+                                            AnimatedExportStage.DECODING -> stringResource(R.string.animated_export_decoding)
+                                            AnimatedExportStage.ENCODING -> stringResource(R.string.animated_export_encoding)
+                                            AnimatedExportStage.VALIDATING -> stringResource(R.string.animated_export_validating)
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
 
-                            if (exportProgress.totalFrames > 0) {
-                                val fraction = (exportProgress.frame.toFloat() / exportProgress.totalFrames)
-                                    .coerceIn(0f, 1f)
+                            if (progressFraction != null) {
                                 LinearProgressIndicator(
-                                    progress = fraction,
+                                    progress = { progressFraction },
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 Text(
                                     stringResource(
                                         R.string.animated_export_frames,
                                         exportProgress.frame,
-                                        exportProgress.totalFrames
+                                        exportProgress.totalFrames,
+                                        progressPercent ?: 0
                                     ),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             } else {
                                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                             }
 
-                            Text(
-                                text = when (exportProgress.stage) {
-                                    AnimatedExportStage.PREPARING -> stringResource(R.string.animated_export_preparing)
-                                    AnimatedExportStage.DECODING -> stringResource(R.string.animated_export_decoding)
-                                    AnimatedExportStage.ENCODING -> stringResource(R.string.animated_export_encoding)
-                                    AnimatedExportStage.VALIDATING -> stringResource(R.string.animated_export_validating)
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
                             if (exportProgress.totalAttempts > 0) {
                                 Text(
-                                    stringResource(
-                                        R.string.animated_export_attempt,
-                                        exportProgress.attempt,
-                                        exportProgress.totalAttempts,
-                                        exportProgress.frameRate,
-                                        exportProgress.quality
-                                    ),
-                                    style = MaterialTheme.typography.labelLarge
-                                )
-                            }
-
-                            if (exportProgress.frameRate > 0) {
-                                Text(
-                                    stringResource(
-                                        R.string.animated_export_source_time,
-                                        formatTime(exportProgress.sourceTimeMs)
-                                    ),
+                                    stringResource(R.string.animated_export_profile, profileLabel),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    ExportMetric(
+                                        label = stringResource(R.string.animated_export_pass_label),
+                                        value = "${exportProgress.attempt}/${exportProgress.totalAttempts}",
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    ExportMetric(
+                                        label = stringResource(R.string.animated_export_fps_label),
+                                        value = stringResource(R.string.animated_export_fps_value, exportProgress.frameRate),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    ExportMetric(
+                                        label = stringResource(R.string.animated_export_quality_label),
+                                        value = "${exportProgress.quality}/100",
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
                             }
+
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        stringResource(
+                                            R.string.animated_export_clip_progress,
+                                            formatPreciseTime(exportProgress.sourceTimeMs.coerceAtMost(selectedClipDurationMs)),
+                                            formatPreciseTime(selectedClipDurationMs)
+                                        ),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        stringResource(R.string.animated_export_clip_explanation),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (reportedSize > 0L) {
+                                        Text(
+                                            stringResource(
+                                                if (isLastCandidateOversized) R.string.animated_export_measured_size_over
+                                                else R.string.animated_export_measured_size,
+                                                formatFileSize(reportedSize),
+                                                formatFileSize(AnimatedStickerExporter.MAX_BYTES)
+                                            ),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = if (isLastCandidateOversized) MaterialTheme.colorScheme.error
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
                             Text(
-                                stringResource(
-                                    R.string.animated_export_elapsed,
-                                    formatTime(exportProgress.elapsedMs)
-                                ),
+                                stringResource(R.string.animated_export_elapsed, formatTime(exportProgress.elapsedMs)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -744,6 +814,34 @@ private fun GifTrimPreview(uri: android.net.Uri, trimRange: LongRange, modifier:
 }
 
 @Composable
+private fun ExportMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
 fun VideoToolsPanel(
     isGridEnabled: Boolean,
     onAddText: () -> Unit,
@@ -796,5 +894,16 @@ private fun formatTime(ms: Long): String {
     val minutes = (totalSeconds / 60) % 60
     return String.format(Locale.US, "%02d:%02d", minutes, seconds)
 }
+
+private fun formatPreciseTime(ms: Long): String {
+    val safeMs = ms.coerceAtLeast(0L)
+    val totalSeconds = safeMs / 1000
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    val milliseconds = safeMs % 1000
+    return String.format(Locale.US, "%02d:%02d.%03d", minutes, seconds, milliseconds)
+}
+
+private fun formatFileSize(bytes: Long): String = String.format(Locale.US, "%.1f KB", bytes / 1024f)
 
 private fun formatDuration(ms: Long): String = String.format(Locale.US, "%.1f s", ms / 1000f)

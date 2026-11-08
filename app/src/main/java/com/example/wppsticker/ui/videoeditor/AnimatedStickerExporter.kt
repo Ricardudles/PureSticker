@@ -43,7 +43,9 @@ data class AnimatedExportProgress(
     val sourceTimeMs: Long = 0L,
     val frameRate: Int = 0,
     val quality: Int = 0,
-    val elapsedMs: Long = 0L
+    val elapsedMs: Long = 0L,
+    val candidateSizeBytes: Long = 0L,
+    val previousCandidateSizeBytes: Long = 0L
 )
 
 data class AnimatedExportFailure(val message: String, val debugDetails: String? = null)
@@ -122,6 +124,7 @@ internal object AnimatedStickerExporter {
             val sourceFps = (gif?.frameRate ?: videoInfo!!.frameRate).coerceIn(8f, 125f)
             val candidates = planAnimatedEncodingCandidates(profile, sourceFps, end - start)
             val tempFiles = mutableListOf<File>()
+            var previousCandidateSizeBytes = 0L
             try {
                 for ((index, settings) in candidates.withIndex()) {
                     checkExportState(isCancelled, deadline)
@@ -139,9 +142,13 @@ internal object AnimatedStickerExporter {
                             totalFrames = targetFrameCount,
                             frameRate = fps,
                             quality = quality,
-                            elapsedMs = SystemClock.elapsedRealtime() - exportStartedAt
+                            elapsedMs = SystemClock.elapsedRealtime() - exportStartedAt,
+                            previousCandidateSizeBytes = previousCandidateSizeBytes
                         )
                     )
+                    val candidateProgress: (AnimatedExportProgress) -> Unit = { progress ->
+                        onProgress(progress.copy(previousCandidateSizeBytes = previousCandidateSizeBytes))
+                    }
                     val candidate = File(outputDirectory, "animated_candidate_${System.nanoTime()}.webp")
                     tempFiles += candidate
                     val ok = encodeCandidate(
@@ -162,7 +169,7 @@ internal object AnimatedStickerExporter {
                         targetFrameCount = targetFrameCount,
                         exportStartedAt = exportStartedAt,
                         deadline = deadline,
-                        onProgress = onProgress,
+                        onProgress = candidateProgress,
                         isCancelled = isCancelled
                     )
                     val sizeBytes = candidate.takeIf { it.isFile }?.length() ?: 0L
@@ -177,7 +184,9 @@ internal object AnimatedStickerExporter {
                             totalFrames = targetFrameCount,
                             frameRate = fps,
                             quality = quality,
-                            elapsedMs = SystemClock.elapsedRealtime() - exportStartedAt
+                            elapsedMs = SystemClock.elapsedRealtime() - exportStartedAt,
+                            candidateSizeBytes = sizeBytes,
+                            previousCandidateSizeBytes = previousCandidateSizeBytes
                         )
                     )
                     Log.i(
@@ -189,6 +198,7 @@ internal object AnimatedStickerExporter {
                         tempFiles.remove(candidate)
                         return AnimatedExportResult(candidate, fps, quality)
                     }
+                    previousCandidateSizeBytes = sizeBytes
                     candidate.delete()
                 }
                 throw IllegalStateException(

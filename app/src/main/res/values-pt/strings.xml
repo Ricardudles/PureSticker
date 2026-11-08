@@ -198,13 +198,20 @@
 
     <!-- Exportação animada -->
     <string name="animated_export_title">Criando figurinha animada</string>
-    <string name="animated_export_preparing">Preparando o vídeo e o decoder</string>
-    <string name="animated_export_decoding">Decodificando quadros do vídeo</string>
-    <string name="animated_export_encoding">Renderizando e codificando WebP</string>
-    <string name="animated_export_validating">Conferindo tamanho e limites do WhatsApp</string>
-    <string name="animated_export_attempt">Codificação %1$d de %2$d · %3$d fps · qualidade %4$d</string>
-    <string name="animated_export_frames">Quadros de saída: %1$d de %2$d</string>
-    <string name="animated_export_source_time">Posição no vídeo: %1$s</string>
+    <string name="animated_export_preparing">Conferindo o trecho escolhido e preparando o decoder</string>
+    <string name="animated_export_decoding">Lendo quadros do trecho selecionado</string>
+    <string name="animated_export_encoding">Aplicando as edições e codificando os quadros WebP</string>
+    <string name="animated_export_validating">Medindo o arquivo e conferindo os limites do WhatsApp</string>
+    <string name="animated_export_frames">Quadros processados: %1$d de %2$d (%3$d%%)</string>
+    <string name="animated_export_profile">Perfil escolhido: %1$s</string>
+    <string name="animated_export_pass_label">Passe</string>
+    <string name="animated_export_fps_label">FPS</string>
+    <string name="animated_export_fps_value">%1$d fps</string>
+    <string name="animated_export_quality_label">Qualidade</string>
+    <string name="animated_export_clip_progress">Dentro do trecho selecionado: %1$s / %2$s</string>
+    <string name="animated_export_clip_explanation">O avanço é relativo ao trecho cortado, não à timeline inteira. Só há outro passe se o arquivo exceder o limite de tamanho.</string>
+    <string name="animated_export_measured_size">Último arquivo codificado: %1$s / limite de %2$s</string>
+    <string name="animated_export_measured_size_over">Último arquivo codificado: %1$s, acima do limite de %2$s. Ajustando qualidade e quadros por segundo automaticamente.</string>
     <string name="animated_export_elapsed">Tempo decorrido: %1$s</string>
     <string name="animated_export_debug_mode">Modo debug · detalhes técnicos serão exibidos se houver falha</string>
     <string name="animated_export_cancel">Cancelar exportação</string>

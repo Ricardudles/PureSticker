@@ -198,13 +198,20 @@
 
     <!-- Animated export -->
     <string name="animated_export_title">Creating animated sticker</string>
-    <string name="animated_export_preparing">Preparing source video and decoder</string>
-    <string name="animated_export_decoding">Decoding video frames</string>
-    <string name="animated_export_encoding">Rendering and encoding WebP</string>
-    <string name="animated_export_validating">Checking size and WhatsApp limits</string>
-    <string name="animated_export_attempt">Encode pass %1$d of %2$d · %3$d fps · quality %4$d</string>
-    <string name="animated_export_frames">Output frames: %1$d of %2$d</string>
-    <string name="animated_export_source_time">Source position: %1$s</string>
+    <string name="animated_export_preparing">Checking the selected clip and preparing the decoder</string>
+    <string name="animated_export_decoding">Reading frames from the selected section</string>
+    <string name="animated_export_encoding">Applying edits and encoding WebP frames</string>
+    <string name="animated_export_validating">Measuring the file and checking WhatsApp limits</string>
+    <string name="animated_export_frames">Frames processed: %1$d of %2$d (%3$d%%)</string>
+    <string name="animated_export_profile">Selected profile: %1$s</string>
+    <string name="animated_export_pass_label">Pass</string>
+    <string name="animated_export_fps_label">FPS</string>
+    <string name="animated_export_fps_value">%1$d fps</string>
+    <string name="animated_export_quality_label">Quality</string>
+    <string name="animated_export_clip_progress">Within selected clip: %1$s / %2$s</string>
+    <string name="animated_export_clip_explanation">Progress is relative to the trimmed section, not the complete video timeline. Another pass runs only if the file exceeds the size limit.</string>
+    <string name="animated_export_measured_size">Last encoded file: %1$s / %2$s limit</string>
+    <string name="animated_export_measured_size_over">Last encoded file: %1$s, above the %2$s limit. Quality and frame rate are being adjusted automatically.</string>
     <string name="animated_export_elapsed">Elapsed: %1$s</string>
     <string name="animated_export_debug_mode">Debug mode · detailed failure information will be shown</string>
     <string name="animated_export_cancel">Cancel export</string>
