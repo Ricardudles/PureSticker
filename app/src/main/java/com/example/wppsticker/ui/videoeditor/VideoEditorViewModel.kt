@@ -119,6 +119,8 @@ class VideoEditorViewModel @Inject constructor(
     private val _exportProfile = MutableStateFlow(AnimatedExportProfile.BALANCED)
     val exportProfile: StateFlow<AnimatedExportProfile> = _exportProfile.asStateFlow()
     private var exportJob: Job? = null
+    private var isTrimGestureInProgress = false
+    private var wasPlayingBeforeTrim = false
 
     // --- PLAYER ---
     var player: ExoPlayer? = null
@@ -317,20 +319,42 @@ class VideoEditorViewModel @Inject constructor(
 
     fun updateTrimRange(startMs: Long, endMs: Long) {
         val duration = _videoDuration.value
-        val safeStart = startMs.coerceIn(0, duration)
+        if (duration < 16L) return
+        val safeStart = startMs.coerceIn(0L, duration - 16L)
         val maximumEnd = minOf(duration, safeStart + AnimatedStickerExporter.MAX_DURATION_MS)
-        if (maximumEnd - safeStart < 16L) return
         val safeEnd = endMs.coerceIn(safeStart + 16L, maximumEnd)
         if (safeEnd <= safeStart) return
-        
+
+        if (!isTrimGestureInProgress) {
+            pushToUndoStack()
+            isTrimGestureInProgress = true
+            wasPlayingBeforeTrim = player?.isPlaying == true
+            player?.pause()
+        }
         _trimRange.value = safeStart..safeEnd
-        
-        // Jump to start to show preview
-        player?.seekTo(safeStart)
+        // Seeking on every pointer update stalls the player and fights the slider gesture.
     }
-    
-    fun onTrimChangeFinished() {
+
+    fun setTrimDuration(durationMs: Long) {
+        val sourceDuration = _videoDuration.value
+        if (sourceDuration < 16L) return
+        val selectedDuration = durationMs.coerceIn(16L, minOf(sourceDuration, AnimatedStickerExporter.MAX_DURATION_MS))
+        val start = _trimRange.value.first.coerceAtMost(sourceDuration - selectedDuration)
         pushToUndoStack()
+        isTrimGestureInProgress = false
+        _trimRange.value = start..(start + selectedDuration)
+        player?.seekTo(start)
+        _currentPosition.value = start
+    }
+
+    fun onTrimChangeFinished() {
+        if (!isTrimGestureInProgress) return
+        isTrimGestureInProgress = false
+        val start = _trimRange.value.first
+        player?.seekTo(start)
+        _currentPosition.value = start
+        if (wasPlayingBeforeTrim) player?.play()
+        wasPlayingBeforeTrim = false
     }
 
     fun setExportProfile(profile: AnimatedExportProfile) {

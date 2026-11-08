@@ -79,6 +79,9 @@
 
     <!-- Video Editor -->
     <string name="video_editor_trim_video">Trim Video</string>
+    <string name="video_editor_trim_selection">Selected clip: %1$s – %2$s (%3$s)</string>
+    <string name="video_editor_quick_durations">Quick clip length</string>
+    <string name="video_editor_seconds_short">%1$ds</string>
     <string name="video_editor_grid">Grid</string>
     <string name="video_editor_cancel_button">Cancel</string>
     <string name="processing_video_progress">Processing video... %1$d%%</string>

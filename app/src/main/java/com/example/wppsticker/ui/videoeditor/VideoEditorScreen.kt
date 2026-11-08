@@ -462,11 +462,43 @@ fun VideoEditorScreen(
                     if (videoDuration > 0) {
                         Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
                             Text(
-                                text = stringResource(R.string.video_editor_trim_video) + ": ${formatTime(trimRange.start)} - ${formatTime(trimRange.endInclusive)}",
+                                text = stringResource(
+                                    R.string.video_editor_trim_selection,
+                                    formatTime(trimRange.first),
+                                    formatTime(trimRange.last),
+                                    formatDuration(trimRange.last - trimRange.first)
+                                ),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelSmall,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
+
+                            Text(
+                                text = stringResource(R.string.video_editor_quick_durations),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                listOf(1_000L, 3_000L, 5_000L, 10_000L)
+                                    .filter { it <= videoDuration }
+                                    .forEach { durationMs ->
+                                        val selected = trimRange.last - trimRange.first == durationMs
+                                        TextButton(
+                                            modifier = Modifier.weight(1f),
+                                            onClick = { viewModel.setTrimDuration(durationMs) }
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.video_editor_seconds_short, durationMs / 1_000),
+                                                color = if (selected) MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        }
+                                    }
+                            }
                             
                             // Timeline + Slider Stack
                             Box(
@@ -498,10 +530,11 @@ fun VideoEditorScreen(
                                 
                                 // Slider Overlay
                                 RangeSlider(
-                                    value = trimRange.start.toFloat()..trimRange.endInclusive.toFloat(),
+                                    value = trimRange.first.toFloat()..trimRange.last.toFloat(),
                                     onValueChange = { range ->
                                         viewModel.updateTrimRange(range.start.toLong(), range.endInclusive.toLong())
                                     },
+                                    onValueChangeFinished = viewModel::onTrimChangeFinished,
                                     valueRange = 0f..videoDuration.toFloat(),
                                     steps = 0,
                                     modifier = Modifier.fillMaxSize()
@@ -763,3 +796,5 @@ private fun formatTime(ms: Long): String {
     val minutes = (totalSeconds / 60) % 60
     return String.format(Locale.US, "%02d:%02d", minutes, seconds)
 }
+
+private fun formatDuration(ms: Long): String = String.format(Locale.US, "%.1f s", ms / 1000f)

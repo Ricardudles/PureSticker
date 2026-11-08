@@ -79,6 +79,9 @@
 
     <!-- Video Editor -->
     <string name="video_editor_trim_video">Aparar Vídeo</string>
+    <string name="video_editor_trim_selection">Trecho selecionado: %1$s – %2$s (%3$s)</string>
+    <string name="video_editor_quick_durations">Duração rápida do trecho</string>
+    <string name="video_editor_seconds_short">%1$ds</string>
     <string name="video_editor_grid">Grade</string>
     <string name="video_editor_cancel_button">Cancelar</string>
     <string name="processing_video_progress">Processando vídeo... %1$d%%</string>
