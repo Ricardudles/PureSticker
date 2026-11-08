@@ -79,6 +79,7 @@ class EditorViewModel @Inject constructor(
     val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
 
     val packageIdArg: Int = savedStateHandle.get<Int>("packageId") ?: -1
+    private val isAnimatedOutput: Boolean = savedStateHandle.get<Boolean>("isAnimated") ?: false
 
     // Raw state to prevent "stuck" snap behavior
     private var rawOffset = Offset.Zero
@@ -497,11 +498,7 @@ class EditorViewModel @Inject constructor(
         val encodedUri = URLEncoder.encode(Uri.fromFile(file).toString(), StandardCharsets.UTF_8.toString())
 
         var route = "${Screen.SaveSticker.name}/$encodedUri"
-        if (packageIdArg != -1) {
-            route += "?packageId=$packageIdArg"
-        } else {
-            route += "?packageId=-1"
-        }
+        route += "?packageId=$packageIdArg&isAnimated=$isAnimatedOutput"
 
         _navigateToSave.value = route
         _isBusy.value = false

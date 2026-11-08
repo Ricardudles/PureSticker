@@ -135,15 +135,36 @@ fun PackageScreen(
         }
     )
 
+    val animatedMediaPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
+                pickedUri = uri
+            }
+        }
+    )
+
     if (pickedUri != null) {
         val uriToProcess = pickedUri!!
         LaunchedEffect(uriToProcess) {
             val encodedUri = safeEncodeUri(uriToProcess.toString())
-            val route = if (isAnimated && currentPackageId != null) {
+            val mimeType = context.contentResolver.getType(uriToProcess).orEmpty()
+            val fileName = uriToProcess.lastPathSegment.orEmpty().substringBefore('?')
+            val isGif = mimeType.equals("image/gif", ignoreCase = true) || fileName.endsWith(".gif", ignoreCase = true)
+            val isVideo = mimeType.startsWith("video/", ignoreCase = true) ||
+                fileName.substringAfterLast('.', "").lowercase() in setOf("mp4", "m4v", "mov", "webm", "mkv", "3gp")
+            val route = if (isAnimated && currentPackageId != null && (isVideo || isGif)) {
                 "$videoEditorRouteName/$encodedUri?packageId=$currentPackageId"
             } else {
                 if (currentPackageId != null) {
-                    "$editorRouteName/$encodedUri?packageId=$currentPackageId"
+                    val animatedOutput = isAnimated && !isVideo && !isGif
+                    "$editorRouteName/$encodedUri?packageId=$currentPackageId&isAnimated=$animatedOutput"
                 } else {
                     "$editorRouteName/$encodedUri"
                 }
@@ -522,18 +543,12 @@ fun PackageScreen(
                             FloatingActionButton(
                                 onClick = {
                                     if (isAnimated) {
-                                        Toast.makeText(context, context.getString(R.string.coming_soon), Toast.LENGTH_SHORT).show()
-                                        return@FloatingActionButton
-                                    }
-                                    
-                                    // NO PERMISSION CHECK NEEDED HERE
-                                    // Just launch the Photo Picker
-                                    val mediaType = if (isAnimated) {
-                                        ActivityResultContracts.PickVisualMedia.VideoOnly
+                                        animatedMediaPickerLauncher.launch(arrayOf("video/*", "image/*"))
                                     } else {
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                        mediaPickerLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
                                     }
-                                    mediaPickerLauncher.launch(PickVisualMediaRequest(mediaType))
                                 },
                                 containerColor = MaterialTheme.colorScheme.primary,
                                 contentColor = MaterialTheme.colorScheme.onPrimary

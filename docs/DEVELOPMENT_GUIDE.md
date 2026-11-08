@@ -41,7 +41,7 @@ Imagens de bandeja e stickers são arquivos privados em `context.filesDir`; regi
 
 ## 4. Navegação e fluxos
 
-`MainActivity` aplica tema e configura `NavGraph`; a rota inicial é `Home`. `Screen` contém: `Home`, `StickerPack/{packageId}`, `StickerTypeSelection`, `Editor/{stickerUri}?packageId=...`, `VideoEditor/{stickerUri}?packageId=...`, `SaveSticker/{stickerUri}?packageId=...&isAnimated=...`, `PackageSelection` com argumentos opcionais, `Settings` e `RestorePreview/{backupUri}`. Os argumentos das rotas são strings/ints/bools do Navigation Compose; preserve encoding correto de URI/texto ao construir rotas.
+`MainActivity` aplica tema e configura `NavGraph`; a rota inicial é `Home`. `Screen` contém: `Home`, `StickerPack/{packageId}`, `StickerTypeSelection`, `Editor/{stickerUri}?packageId=...&isAnimated=...`, `VideoEditor/{stickerUri}?packageId=...`, `SaveSticker/{stickerUri}?packageId=...&isAnimated=...`, `PackageSelection` com argumentos opcionais, `Settings` e `RestorePreview/{backupUri}`. Os argumentos das rotas são strings/ints/bools do Navigation Compose; preserve encoding correto de URI/texto ao construir rotas.
 
 Fluxos principais observados:
 
@@ -61,6 +61,8 @@ Para entender uma ação de UI, siga: Composable → ViewModel → UseCase/Repos
 `EditorScreen` e `EditorViewModel` mantêm o estado de edição (`EditorState`, `ImageState`, `TextData`). A implementação oferece crop, texto com formatação, posicionamento/transformação, snap/grid, undo/redo e remoção de fundo por `BackgroundRemover` (ML Kit). O `StickerCanvasBoundary` fica sobre todas as camadas e desenha um contorno duplo sutil, mantendo visível o limite quadrado de 512×512 mesmo quando a mídia ocupa o canvas inteiro; o quadriculado continua indicando transparência. `ImageHelper` oferece redimensionamento. Confirme o formato e dimensões da saída em `SaveStickerViewModel` e nos helpers antes de mexer em compatibilidade/tamanho.
 
 ### Vídeo/GIF e WebP animado
+
+`CreatePackageDialog` aceita o tipo animado na Home e respeita o tipo obrigatório quando é aberto a partir da seleção de pacote para uma figurinha. A escolha é propagada por `HomeViewModel` ao campo `StickerPackage.animated`; a seleção filtra pacotes pelo tipo e impede mistura. Dentro de um pacote animado, o botão de adicionar abre `OpenDocument` para vídeo e imagem: vídeo/GIF seguem ao `VideoEditor`, enquanto imagem estática segue ao `Editor` com a saída marcada como animada. `EditorViewModel` carrega esse argumento até `SaveSticker`, onde `SaveStickerViewModel` muxa a imagem em WebP animado de dois quadros. O botão de adicionar ao WhatsApp só conclui quando o pacote tem ao menos três figurinhas; antes disso o app mostra a regra como mensagem.
 
 `VideoEditorScreen` e `VideoEditorViewModel` mantêm preview em loop, seleção de trecho de até 10 segundos, enquadramento, zoom, rotação, texto, grade, undo/redo e seleção do perfil de saída. A timeline aceita ajuste pelos dois puxadores e oferece cortes rápidos de 1, 3, 5 e 10 segundos para validar a exportação com menos quadros. Durante o arraste, a prévia pausa sem executar seeks repetidos; ao soltar, busca o início do trecho e retoma se estava tocando. O padrão de 10 segundos é aplicado uma única vez quando o player inicializa; seeks posteriores que retornam a `STATE_READY` não alteram o intervalo escolhido nem forçam a reprodução. O estado anterior do corte é salvo uma única vez no undo. GIF é lido quadro a quadro por `AnimatedStickerExporter.GifSource` usando o decoder standalone do Glide; preview GIF acompanha o trecho selecionado. Para vídeo, o preview continua em ExoPlayer/Media3. O limite de canvas usa o mesmo `StickerCanvasBoundary` do editor de imagem e é desenhado por cima da mídia e da grade para não desaparecer em imagens/vídeos que preenchem o quadro.
 
@@ -111,11 +113,13 @@ Na raiz do projeto (Windows):
 
 Execute apenas os comandos necessários à tarefa. Os comandos acima são referências; este guia não implica que o build ou testes tenham sido executados nesta atualização.
 
-## Estado da revisão (06/11/2026)
+## Estado da revisão (08/11/2026)
 
 Em 08/11/2026, após otimizar exportação animada, passaram `testDebugUnitTest`, `assembleDebug`, `assembleDebugAndroidTest` e `lintDebug`; seis testes unitários cobrem o conversor YUV, incluindo downsampling estratificado. As três ABIs nativas compilaram e os sete testes instrumentados WebP passaram no AVD API 36.1. Esses testes validam a assinatura JNI e o encoder/muxer, não o processamento completo do vídeo do usuário. A busca agora testa no máximo dez candidatos. O resultado do vídeo que atingiu timeout no Samsung ainda precisa ser confirmado ponta a ponta no aparelho. Persistem pendências de Android API 26, HDR/VFR, WhatsApp real e sistema com páginas de 16 KiB. Há avisos existentes de APIs/opções depreciadas no projeto.
 
 Em 08/11/2026, a seleção de trecho foi ajustada para pausar a prévia durante o gesto e fazer seek só ao soltar, evitando disputa entre playback e RangeSlider. O undo guarda o estado anterior uma vez por gesto. A tela mostra início/fim/duração e atalhos de 1, 3, 5 e 10 segundos (limitados à duração da origem), úteis para uma exportação curta de teste. Após essa alteração passaram `testDebugUnitTest`, `assembleDebug` e `lintDebug`; o lint manteve os avisos existentes. O comportamento de seleção e exportação ainda precisa ser confirmado com o vídeo de teste no aparelho físico.
 
 Após relato de que os atalhos e o arraste piscavam e voltavam para 10 segundos, foi identificado que cada retorno do ExoPlayer a `STATE_READY` reinicializava o corte e forçava `playWhenReady=true`. A inicialização agora ocorre uma vez, e a transição de estado não reativa a reprodução nem troca a seleção. Nesta correção passaram `testDebugUnitTest`, `assembleDebug` e `lintDebug`; falta validar a interação com o vídeo original no aparelho físico.
+
+Em 08/11/2026 foi removido o bloqueio residual de pacotes animados: `CreatePackageDialog` agora oferece o tipo na Home e fixa o tipo correto ao criar pacote durante o salvamento. O botão de adicionar em pacote animado aceita vídeos, GIFs e imagens estáticas, propagando `isAnimated` até `SaveSticker`; imagem estática é muxada em dois quadros WebP. As strings adicionadas/alteradas foram traduzidas em `values` e `values-pt`. Passaram `testDebugUnitTest`, `assembleDebug` e `lintDebug`. A ativação no WhatsApp continua exigindo pelo menos três figurinhas por pacote.
 

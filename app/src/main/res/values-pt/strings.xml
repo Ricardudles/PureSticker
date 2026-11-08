@@ -17,7 +17,6 @@
     <string name="ok">OK</string>
     <string name="undo">Desfazer</string>
     <string name="redo">Refazer</string>
-    <string name="coming_soon">Em Breve</string>
     
     <!-- Home Screen -->
     <string name="my_stickers">Minhas Figurinhas</string>
@@ -57,7 +56,11 @@
     <string name="pack_name_label">Nome do Pacote</string>
     <string name="author_label">Autor</string>
     <string name="animated_pack_label">Pacote Animado</string>
-    <string name="animated_pack_desc">Pacotes animados suportam apenas arquivos GIF e WebP.</string>
+    <string name="static_pack_label">Pacote Estático</string>
+    <string name="package_type_label">Tipo de pacote</string>
+    <string name="animated_pack_desc">Vídeos e GIFs são convertidos em figurinhas WebP animadas para este pacote.</string>
+    <string name="animated_pack_required_desc">Esta figurinha precisa de um pacote animado.</string>
+    <string name="static_pack_required_desc">Esta figurinha precisa de um pacote estático.</string>
     <string name="advanced_options_optional">Opções Avançadas (Opcional)</string>
     
     <!-- Editor Screen -->

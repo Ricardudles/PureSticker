@@ -32,7 +32,7 @@ fun CreatePackageDialog(
 ) {
     var name by remember { mutableStateOf("") }
     var author by remember { mutableStateOf("") }
-    // var isAnimated by remember { mutableStateOf(forceIsAnimated ?: false) } // Force disabled for now
+    var isAnimated by remember(forceIsAnimated) { mutableStateOf(forceIsAnimated ?: false) }
     
     var email by remember { mutableStateOf("") }
     var website by remember { mutableStateOf("") }
@@ -108,7 +108,7 @@ fun CreatePackageDialog(
                     keyboardActions = KeyboardActions(onDone = {
                         focusManager.clearFocus()
                         if (validate()) {
-                            onCreate(name, author, false, email, website, privacyPolicy, license)
+                            onCreate(name, author, forceIsAnimated ?: isAnimated, email, website, privacyPolicy, license)
                         }
                     }),
                     modifier = Modifier.fillMaxWidth()
@@ -116,25 +116,40 @@ fun CreatePackageDialog(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Animated Switch - DISABLED for now
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.animated_pack_label), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            stringResource(R.string.coming_soon),
+                            stringResource(if (forceIsAnimated == null) R.string.animated_pack_label else R.string.package_type_label),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            stringResource(
+                                when (forceIsAnimated) {
+                                    true -> R.string.animated_pack_required_desc
+                                    false -> R.string.static_pack_required_desc
+                                    null -> R.string.animated_pack_desc
+                                }
+                            ),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    Switch(
-                        checked = false, // Force unchecked
-                        onCheckedChange = { }, // Do nothing
-                        enabled = false // Disable
-                    )
+                    if (forceIsAnimated == null) {
+                        Switch(
+                            checked = isAnimated,
+                            onCheckedChange = { isAnimated = it }
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(if (forceIsAnimated) R.string.animated_pack_label else R.string.static_pack_label),
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
                 }
                 
                 Divider(modifier = Modifier.padding(vertical = 16.dp))
@@ -212,8 +227,7 @@ fun CreatePackageDialog(
                             keyboardActions = KeyboardActions(onDone = {
                                 focusManager.clearFocus()
                                 if (validate()) {
-                                    // Ensure isAnimated is always false
-                                    onCreate(name, author, false, email, website, privacyPolicy, license)
+                                    onCreate(name, author, forceIsAnimated ?: isAnimated, email, website, privacyPolicy, license)
                                 }
                             }),
                             modifier = Modifier.fillMaxWidth()
@@ -226,8 +240,7 @@ fun CreatePackageDialog(
             Button(
                 onClick = { 
                     if (validate()) {
-                        // Ensure isAnimated is always false
-                        onCreate(name, author, false, email, website, privacyPolicy, license)
+                        onCreate(name, author, forceIsAnimated ?: isAnimated, email, website, privacyPolicy, license)
                     }
                 }
             ) {

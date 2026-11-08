@@ -17,7 +17,6 @@
     <string name="ok">OK</string>
     <string name="undo">Undo</string>
     <string name="redo">Redo</string>
-    <string name="coming_soon">Coming Soon</string>
 
     <!-- Home Screen -->
     <string name="my_stickers">My Stickers</string>
@@ -57,7 +56,11 @@
     <string name="pack_name_label">Pack Name</string>
     <string name="author_label">Author</string>
     <string name="animated_pack_label">Animated Pack</string>
-    <string name="animated_pack_desc">Animated packs only support GIF and WebP files.</string>
+    <string name="static_pack_label">Static Pack</string>
+    <string name="package_type_label">Package type</string>
+    <string name="animated_pack_desc">Videos and GIFs are converted into animated WebP stickers for this pack.</string>
+    <string name="animated_pack_required_desc">This sticker requires an animated package.</string>
+    <string name="static_pack_required_desc">This sticker requires a static package.</string>
     <string name="advanced_options_optional">Advanced Options (Optional)</string>
 
     <!-- Editor Screen -->

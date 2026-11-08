@@ -61,12 +61,16 @@ fun NavGraph(navController: NavHostController) {
         }
 
         composable(
-            route = Screen.Editor.name + "/{stickerUri}?packageId={packageId}",
+            route = Screen.Editor.name + "/{stickerUri}?packageId={packageId}&isAnimated={isAnimated}",
             arguments = listOf(
                 navArgument("stickerUri") { type = NavType.StringType },
                 navArgument("packageId") {
                     type = NavType.IntType
                     defaultValue = -1
+                },
+                navArgument("isAnimated") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) {
