@@ -59,4 +59,4 @@ Referências de desempenho: [saída Surface vs ByteBuffer no MediaCodec](https:/
 - Verificação ELF via `llvm-readelf`: segmentos de 64 bits com alinhamento 16 KiB.
 - `zipalign -c -P 16 4 app-debug.apk` — passou.
 
-`versionCode`/`versionName` permanecem em 4/1.3; não foram incrementados porque a exportação ainda tem validações abertas antes do lançamento. A versão do app deve ser incrementada quando o recurso estiver aprovado após os testes em aparelhos e WhatsApp reais.
+Para o próximo envio ao Play Console, `versionCode` foi incrementado para 5 e `versionName` permanece 1.3. O versionCode maior evita rejeição por reutilizar o código 4; a validação física do fluxo animado continua pendente antes de anunciar o recurso como totalmente validado.

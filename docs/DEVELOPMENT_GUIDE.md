@@ -6,7 +6,7 @@
 
 PureSticker é um aplicativo Android nativo em Kotlin para criar e administrar pacotes de figurinhas do WhatsApp. O app tem um único módulo Gradle, `:app`, usa Jetpack Compose e mantém pacotes, stickers e arquivos de mídia localmente. O applicationId é `com.ricardudles.puresticker`; o namespace e o pacote Kotlin são `com.example.wppsticker`.
 
-Alvos observados: `minSdk 26`, `compileSdk 35`, `targetSdk 35`, Java/Kotlin JVM 17, `versionCode 4`, `versionName 1.3`. O catálogo de versões está em `gradle/libs.versions.toml`; plugins e dependências/repositórios são configurados em `build.gradle.kts`, `settings.gradle.kts` e `app/build.gradle.kts`.
+Alvos observados: `minSdk 26`, `compileSdk 35`, `targetSdk 35`, Java/Kotlin JVM 17, `versionCode 5`, `versionName 1.3`. O catálogo de versões está em `gradle/libs.versions.toml`; plugins e dependências/repositórios são configurados em `build.gradle.kts`, `settings.gradle.kts` e `app/build.gradle.kts`.
 
 ## 2. Arquitetura e dependências
 
