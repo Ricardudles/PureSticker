@@ -99,6 +99,29 @@ class Yuv420FrameConverterTest {
         assertEquals(listOf(0xFF101010.toInt(), 0xFFEBEBEB.toInt(), 0xFF101010.toInt(), 0xFFEBEBEB.toInt()), frame.pixels.toList())
     }
 
+    @Test
+    fun usesStratifiedFourTapAverageForLargeReductionBlocks() {
+        val y = ByteArray(16) { index -> if (index % 4 < 2) 16 else 235.toByte() }
+        val frame = Yuv420FrameConverter.toArgb(
+            imageWidth = 4,
+            imageHeight = 4,
+            cropLeft = 0,
+            cropTop = 0,
+            cropRight = 4,
+            cropBottom = 4,
+            y = plane(y, rowStride = 4),
+            u = plane(ByteArray(4) { 128.toByte() }, rowStride = 2),
+            v = plane(ByteArray(4) { 128.toByte() }, rowStride = 2),
+            colorStandard = BT601,
+            colorRange = FULL_RANGE,
+            maxOutputDimension = 1
+        )
+
+        assertEquals(1, frame.width)
+        assertEquals(1, frame.height)
+        assertEquals(0xFF7E7E7E.toInt(), frame.pixels.single())
+    }
+
     private fun convert(width: Int, height: Int, y: Yuv420FrameConverter.Plane,
                         u: Yuv420FrameConverter.Plane, v: Yuv420FrameConverter.Plane): Yuv420FrameConverter.Frame =
         Yuv420FrameConverter.toArgb(

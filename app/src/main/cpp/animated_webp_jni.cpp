@@ -15,6 +15,7 @@ struct Encoder {
   int width;
   int height;
   float quality;
+  int method;
   WebPAnimEncoder* value = nullptr;
   int last_timestamp = -1;
 
@@ -47,7 +48,7 @@ bool AddBitmap(JNIEnv* env, Encoder* encoder, jobject bitmap, int timestamp) {
     WebPPictureFree(&picture);
     return false;
   }
-  config.method = 6;
+  config.method = encoder->method;
   config.thread_level = 1;
   config.alpha_quality = 100;
   config.exact = 1;
@@ -82,16 +83,19 @@ bool Read(const char* path, std::vector<uint8_t>* bytes) {
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_example_wppsticker_ui_videoeditor_AnimatedWebpNative_create(
-    JNIEnv*, jobject, jint width, jint height, jfloat quality) {
-  if (width != 512 || height != 512 || quality < 0.f || quality > 100.f) return 0;
+    JNIEnv*, jobject, jint width, jint height, jfloat quality, jint method) {
+  if (width != 512 || height != 512 || quality < 0.f || quality > 100.f || method < 0 || method > 6) return 0;
   auto encoder = std::make_unique<Encoder>();
   encoder->width = width;
   encoder->height = height;
   encoder->quality = quality;
+  encoder->method = method;
   WebPAnimEncoderOptions options;
   if (!WebPAnimEncoderOptionsInit(&options)) return 0;
   options.anim_params.loop_count = 0;
-  options.minimize_size = 1;
+  // Candidate outputs are measured and the quality search is repeated as needed.
+  // The muxer's exhaustive size minimization is redundant here and very expensive.
+  options.minimize_size = 0;
   options.allow_mixed = 1;
   encoder->value = WebPAnimEncoderNew(width, height, &options);
   if (!encoder->value) return 0;

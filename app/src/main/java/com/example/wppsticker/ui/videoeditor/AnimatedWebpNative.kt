@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 internal object AnimatedWebpNative {
     init { System.loadLibrary("animated_webp") }
 
-    external fun create(width: Int, height: Int, quality: Float): Long
+    external fun create(width: Int, height: Int, quality: Float, method: Int = 4): Long
     external fun addFrame(handle: Long, bitmap: Bitmap, timestampMs: Int): Boolean
     external fun finish(handle: Long, outputPath: String, durationMs: Int): Boolean
     external fun abort(handle: Long)

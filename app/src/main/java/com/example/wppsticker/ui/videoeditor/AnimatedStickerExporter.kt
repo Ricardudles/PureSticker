@@ -10,10 +10,12 @@ import android.graphics.RectF
 import android.media.Image
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import android.os.SystemClock
+import android.os.Build
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toArgb
@@ -49,7 +51,9 @@ data class AnimatedExportFailure(val message: String, val debugDetails: String? 
 
 private class AnimatedExportTimeoutException(message: String) : IllegalStateException(message)
 
-enum class AnimatedExportProfile { FLUID, BALANCED, SHARP }
+enum class AnimatedExportProfile(val encoderMethod: Int) {
+    FLUID(3), BALANCED(4), SHARP(5)
+}
 
 internal data class AnimatedExportResult(val file: File, val frameRate: Int, val quality: Int) {
     val sizeBytes: Long get() = file.length()
@@ -100,15 +104,23 @@ internal object AnimatedStickerExporter {
             }
             val tempFiles = mutableListOf<File>()
             try {
-                attempts.forEachIndexed { index, (fps, quality) ->
+                data class CandidateOutput(val index: Int, val file: File, val fps: Int, val quality: Int)
+                val outcomes = mutableMapOf<Int, CandidateOutput?>()
+                var completedAttempts = 0
+
+                suspend fun evaluate(index: Int): CandidateOutput? {
+                    outcomes[index]?.let { return it }
+                    if (outcomes.containsKey(index) || completedAttempts >= MAX_CANDIDATE_ATTEMPTS) return null
                     checkExportState(isCancelled, deadline)
+                    val (fps, quality) = attempts[index]
                     val intervalMs = max(8, 1000 / fps)
                     val targetFrameCount = ceil((end - start) / intervalMs.toDouble()).toInt().coerceAtLeast(2)
+                    completedAttempts++
                     onProgress(
                         AnimatedExportProgress(
                             stage = AnimatedExportStage.DECODING,
-                            attempt = index + 1,
-                            totalAttempts = attempts.size,
+                            attempt = completedAttempts,
+                            totalAttempts = MAX_CANDIDATE_ATTEMPTS,
                             totalFrames = targetFrameCount,
                             frameRate = fps,
                             quality = quality,
@@ -126,11 +138,12 @@ internal object AnimatedStickerExporter {
                         endMs = end,
                         fps = fps,
                         quality = quality,
+                        encoderMethod = profile.encoderMethod,
                         crop = crop,
                         texts = texts,
                         output = candidate,
-                        attempt = index + 1,
-                        attemptCount = attempts.size,
+                        attempt = completedAttempts,
+                        attemptCount = MAX_CANDIDATE_ATTEMPTS,
                         targetFrameCount = targetFrameCount,
                         exportStartedAt = exportStartedAt,
                         deadline = deadline,
@@ -140,8 +153,8 @@ internal object AnimatedStickerExporter {
                     onProgress(
                         AnimatedExportProgress(
                             stage = AnimatedExportStage.VALIDATING,
-                            attempt = index + 1,
-                            totalAttempts = attempts.size,
+                            attempt = completedAttempts,
+                            totalAttempts = MAX_CANDIDATE_ATTEMPTS,
                             frame = targetFrameCount,
                             totalFrames = targetFrameCount,
                             frameRate = fps,
@@ -150,15 +163,58 @@ internal object AnimatedStickerExporter {
                         )
                     )
                     if (ok && candidate.length() <= MAX_BYTES && AnimatedWebpNative.isValidAnimatedWebp(candidate.absolutePath)) {
-                        tempFiles.remove(candidate)
-                        return AnimatedExportResult(candidate, fps, quality)
+                        return CandidateOutput(index, candidate, fps, quality).also {
+                            outcomes[index] = it
+                        }
                     }
                     candidate.delete()
+                    outcomes[index] = null
+                    return null
                 }
+
+                // File size generally tracks the profile's descending FPS/quality score.
+                // Binary search finds the first measured candidate that fits, instead of
+                // re-decoding the whole source for every point in the 35-item grid.
+                var low = 0
+                var high = attempts.lastIndex
+                var bestIndex: Int? = null
+                while (low <= high && completedAttempts < MAX_CANDIDATE_ATTEMPTS) {
+                    val middle = (low + high) ushr 1
+                    if (evaluate(middle) != null) {
+                        bestIndex = minOf(bestIndex ?: middle, middle)
+                        high = middle - 1
+                    } else {
+                        low = middle + 1
+                    }
+                }
+
+                if (bestIndex == null) {
+                    // Always test the minimum-priority profile point before concluding
+                    // the clip must be shortened; binary search may not have reached it.
+                    evaluate(attempts.lastIndex)
+                    bestIndex = outcomes.values.filterNotNull().minOfOrNull { it.index }
+                } else {
+                    val firstValidIndex = bestIndex
+                    // Check two neighboring higher-priority points against measured file
+                    // sizes to soften small non-monotonic differences between WebP frames.
+                    for (index in (firstValidIndex - 1 downTo maxOf(0, firstValidIndex - 2))) {
+                        if (completedAttempts >= MAX_CANDIDATE_ATTEMPTS) break
+                        if (evaluate(index) != null) bestIndex = index
+                    }
+                }
+
+                val best = bestIndex?.let { outcomes[it] }
+                    ?: throw IllegalStateException(
+                        "Não foi possível encontrar uma combinação de FPS e qualidade abaixo de 500 KiB. Encurte o trecho e tente novamente."
+                    )
+                outcomes.values.filterNotNull().forEach { result ->
+                    if (result.index != best.index) result.file.delete()
+                }
+                tempFiles.remove(best.file)
+                return AnimatedExportResult(best.file, best.fps, best.quality)
             } finally {
                 tempFiles.forEach { it.delete() }
             }
-            throw IllegalStateException("Não foi possível gerar uma figurinha válida abaixo de 500 KiB. Encurte o trecho e tente novamente.")
         } finally {
             gif?.close()
         }
@@ -213,6 +269,7 @@ internal object AnimatedStickerExporter {
         endMs: Long,
         fps: Int,
         quality: Int,
+        encoderMethod: Int,
         crop: VideoCropState,
         texts: List<TextData>,
         output: File,
@@ -227,7 +284,7 @@ internal object AnimatedStickerExporter {
         val interval = max(8, 1000 / fps)
         val duration = (endMs - startMs).toInt()
         val frameCount = ceil(duration / interval.toDouble()).toInt().coerceAtLeast(2)
-        var handle = AnimatedWebpNative.create(512, 512, quality.toFloat())
+        var handle = AnimatedWebpNative.create(512, 512, quality.toFloat(), encoderMethod)
         if (handle == 0L) throw IllegalStateException("Não foi possível iniciar o encoder WebP nativo.")
         var added = 0
         try {
@@ -346,6 +403,18 @@ internal object AnimatedStickerExporter {
             } catch (e: Exception) {
                 throw IllegalStateException("Este aparelho não tem um decoder para ${videoInfo.mime}.", e)
             }
+            val selectedCodecName = decoder.name
+            val hardwareAccelerated = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+                    .firstOrNull { it.name == selectedCodecName }
+                    ?.isHardwareAccelerated
+            } else {
+                null
+            }
+            Log.i(
+                "AnimatedStickerExporter",
+                "Video decoder=$selectedCodecName hardwareAccelerated=${hardwareAccelerated ?: "unknown"}; output=YUV_420_888"
+            )
             decoder.configure(format, null, null, 0)
             decoder.start()
             var decoderOutputFormat = decoder.outputFormat
@@ -591,6 +660,7 @@ internal object AnimatedStickerExporter {
     private const val PROGRESS_INTERVAL_MS = 250L
     private const val MAX_VIDEO_PIXELS = 16L * 1024L * 1024L
     private const val MAX_DECODED_FRAME_DIMENSION = 1024
+    private const val MAX_CANDIDATE_ATTEMPTS = 10
 
     private fun render(source: Bitmap, crop: VideoCropState, texts: List<TextData>): Bitmap {
         val frame = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
@@ -670,7 +740,6 @@ internal object AnimatedStickerExporter {
         val frameRate: Float
         val durationMs: Long get() = cumulative.last()
         private var cursor = -1
-        private var frameStart = 0L
         private var current: Bitmap? = null
 
         init {
@@ -681,6 +750,12 @@ internal object AnimatedStickerExporter {
 
         fun frameAt(timeMs: Long): Bitmap {
             val normalized = (timeMs % cumulative.last()).coerceAtLeast(0)
+            if (cursor >= 0 && normalized < cumulative[cursor]) {
+                current?.recycle()
+                current = null
+                cursor = -1
+                decoder.resetFrameIndex()
+            }
             while (cursor + 1 < header.numFrames && normalized >= cumulative[cursor + 1]) {
                 current?.recycle()
                 decoder.advance()

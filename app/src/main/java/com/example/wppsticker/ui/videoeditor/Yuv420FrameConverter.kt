@@ -64,12 +64,20 @@ internal object Yuv420FrameConverter {
             for (column in 0 until outputWidth) {
                 val sourceLeft = cropLeft + column * sampleSize
                 val sourceRight = minOf(cropRight, sourceLeft + sampleSize)
+                val blockWidth = sourceRight - sourceLeft
+                val blockHeight = sourceBottom - sourceTop
+                // A 2x2 stratified box filter avoids an O(input-pixels) scan for every
+                // output pixel when reducing 4K frames. At most four taps are converted.
+                val tapsX = minOf(2, blockWidth)
+                val tapsY = minOf(2, blockHeight)
                 var ySum = 0
                 var uSum = 0
                 var vSum = 0
                 var sampleCount = 0
-                for (sourceY in sourceTop until sourceBottom) {
-                    for (sourceX in sourceLeft until sourceRight) {
+                for (tapY in 0 until tapsY) {
+                    val sourceY = sourceTop + ((tapY * 2 + 1) * blockHeight) / (tapsY * 2)
+                    for (tapX in 0 until tapsX) {
+                        val sourceX = sourceLeft + ((tapX * 2 + 1) * blockWidth) / (tapsX * 2)
                         ySum += sample(y, sourceY, sourceX)
                         uSum += sample(u, sourceY / 2, sourceX / 2)
                         vSum += sample(v, sourceY / 2, sourceX / 2)
