@@ -1,12 +1,14 @@
 # Guia de desenvolvimento do PureSticker
 
-> Guia baseado no código encontrado em `D:\DESENVOLVIMENTO\WppSticker` em 06/11/2026. Quando este arquivo divergir do código, confirme a implementação atual antes de alterar; este projeto contém documentos históricos desatualizados.
+> Guia revisado em 08/11/2026. Quando este arquivo divergir do código, confirme a implementação atual antes de alterar; este projeto contém documentos históricos desatualizados.
 
 ## 1. Resumo
 
 PureSticker é um aplicativo Android nativo em Kotlin para criar e administrar pacotes de figurinhas do WhatsApp. O app tem um único módulo Gradle, `:app`, usa Jetpack Compose e mantém pacotes, stickers e arquivos de mídia localmente. O applicationId é `com.ricardudles.puresticker`; o namespace e o pacote Kotlin são `com.example.wppsticker`.
 
-Alvos observados: `minSdk 26`, `compileSdk 35`, `targetSdk 35`, Java/Kotlin JVM 17, `versionCode 5`, `versionName 1.3`. O catálogo de versões está em `gradle/libs.versions.toml`; plugins e dependências/repositórios são configurados em `build.gradle.kts`, `settings.gradle.kts` e `app/build.gradle.kts`.
+Alvos observados: `minSdk 26`, `compileSdk 36`, `targetSdk 36`, Java/Kotlin JVM 17, `versionCode 6`, `versionName 1.4`. O catálogo de versões está em `gradle/libs.versions.toml`; plugins e dependências/repositórios são configurados em `build.gradle.kts`, `settings.gradle.kts` e `app/build.gradle.kts`.
+
+`targetSdk 36` atende ao envio de atualizações Android mobile ao Play após 31/08/2026. A atividade principal declara retrato; como Android 16 ignora travas de orientação em telas de pelo menos 600 dp, o manifesto usa temporariamente `PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY` para preservar a compatibilidade até testar layouts adaptativos em tablets e foldables. Esse opt-out é temporário e deve ser removido após a validação, antes de target API 37.
 
 ## 2. Arquitetura e dependências
 
@@ -126,4 +128,6 @@ Após relato de que os atalhos e o arraste piscavam e voltavam para 10 segundos,
 Em 08/11/2026 foi removido o bloqueio residual de pacotes animados: `CreatePackageDialog` agora oferece o tipo na Home e fixa o tipo correto ao criar pacote durante o salvamento. O botão de adicionar em pacote animado aceita vídeos, GIFs e imagens estáticas, propagando `isAnimated` até `SaveSticker`; imagem estática é muxada em dois quadros WebP. As strings adicionadas/alteradas foram traduzidas em `values` e `values-pt`. Passaram `testDebugUnitTest`, `assembleDebug` e `lintDebug`. A ativação no WhatsApp continua exigindo pelo menos três figurinhas por pacote.
 
 O diagnóstico posterior da exportação mostrou que a busca binária executava cada codificação completa desde a fonte e podia fazer até dez passes. A implementação agora parte de FPS/qualidade escolhidos por perfil e duração e limita os recuos a dois, com teste unitário do planejador. O YUV é reduzido a 512 px no zoom padrão e até 1024 px quando o zoom pede mais detalhe; não foi adicionada transcodificação temporária da fonte. Build, testes e lint foram repetidos após a mudança; tempos e tamanhos reais no celular ainda precisam ser coletados.
+
+Para o envio ao Play bloqueado pelo target API, o projeto passou a `compileSdk/targetSdk 36`, `versionCode 6` e `versionName 1.4`. A atividade principal continua retrato e recebeu temporariamente `PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY`, porque Android 16 ignora essa trava em telas `sw600dp` quando se mira API 36. Em 08/11/2026 passaram `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:bundleRelease`, `:app:lintDebug` e os sete testes de `:app:connectedDebugAndroidTest` no AVD API 36.1. Ainda falta validar a navegação do app em tablet/foldable API 36 antes de remover o opt-out.
 
