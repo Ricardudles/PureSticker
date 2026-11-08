@@ -202,7 +202,7 @@
     <string name="animated_export_decoding">Decodificando quadros do vídeo</string>
     <string name="animated_export_encoding">Renderizando e codificando WebP</string>
     <string name="animated_export_validating">Conferindo tamanho e limites do WhatsApp</string>
-    <string name="animated_export_attempt">Tentativa %1$d de %2$d · %3$d fps · qualidade %4$d</string>
+    <string name="animated_export_attempt">Codificação %1$d de %2$d · %3$d fps · qualidade %4$d</string>
     <string name="animated_export_frames">Quadros de saída: %1$d de %2$d</string>
     <string name="animated_export_source_time">Posição no vídeo: %1$s</string>
     <string name="animated_export_elapsed">Tempo decorrido: %1$s</string>

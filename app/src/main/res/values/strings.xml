@@ -202,7 +202,7 @@
     <string name="animated_export_decoding">Decoding video frames</string>
     <string name="animated_export_encoding">Rendering and encoding WebP</string>
     <string name="animated_export_validating">Checking size and WhatsApp limits</string>
-    <string name="animated_export_attempt">Attempt %1$d of %2$d · %3$d fps · quality %4$d</string>
+    <string name="animated_export_attempt">Encode pass %1$d of %2$d · %3$d fps · quality %4$d</string>
     <string name="animated_export_frames">Output frames: %1$d of %2$d</string>
     <string name="animated_export_source_time">Source position: %1$s</string>
     <string name="animated_export_elapsed">Elapsed: %1$s</string>
