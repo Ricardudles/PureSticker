@@ -121,6 +121,7 @@ class VideoEditorViewModel @Inject constructor(
     private var exportJob: Job? = null
     private var isTrimGestureInProgress = false
     private var wasPlayingBeforeTrim = false
+    private var hasInitializedVideoTrim = false
 
     // --- PLAYER ---
     var player: ExoPlayer? = null
@@ -212,13 +213,13 @@ class VideoEditorViewModel @Inject constructor(
                     if (playbackState == Player.STATE_READY) {
                         val duration = duration.coerceAtLeast(0)
                         _videoDuration.value = duration
-                        
-                        // Default trim: Full video or max 10s
-                        val end = minOf(duration, 10_000L) // Max 10 seconds limit
-                        _trimRange.value = 0L..end
-                        
-                        // Pause initially so user can orient
-                        playWhenReady = true
+
+                        // Apply the default once; seeks can return the player to STATE_READY.
+                        if (duration > 0L && !hasInitializedVideoTrim) {
+                            val end = minOf(duration, AnimatedStickerExporter.MAX_DURATION_MS)
+                            _trimRange.value = 0L..end
+                            hasInitializedVideoTrim = true
+                        }
                     }
                 }
                 
