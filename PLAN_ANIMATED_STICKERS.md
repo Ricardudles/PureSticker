@@ -1,6 +1,10 @@
 # Figurinhas animadas WebP — estado de implementação
 
-Atualizado em 08/11/2026. Este documento descreve o código atual e as validações feitas nesta implementação. O recurso ainda precisa de testes ponta a ponta com vídeos reais em aparelhos e WhatsApp antes de ser considerado pronto para lançamento.
+Atualizado em 11/11/2026. Este documento descreve o código atual e as validações feitas nesta implementação. O recurso ainda precisa de testes ponta a ponta com vídeos reais em aparelhos e WhatsApp antes de ser considerado pronto para lançamento.
+
+## Interface do editor (11/11/2026)
+
+- Os editores de imagem e vídeo/GIF usam a mesma viewport quadrada e o mesmo dock rolável. A área de edição ocupa o espaço restante acima dos controles; a timeline e as ferramentas não ficam sobre o vídeo nem escondem a borda inferior do canvas. O limite visual continua desenhado acima da mídia/grade.
 
 ## Implementado
 

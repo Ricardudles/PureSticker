@@ -1,6 +1,6 @@
 # Guia de desenvolvimento do PureSticker
 
-> Guia revisado em 08/11/2026. Quando este arquivo divergir do código, confirme a implementação atual antes de alterar; este projeto contém documentos históricos desatualizados.
+> Guia revisado em 11/11/2026. Quando este arquivo divergir do código, confirme a implementação atual antes de alterar; este projeto contém documentos históricos desatualizados.
 
 ## 1. Resumo
 
@@ -59,6 +59,8 @@ Para entender uma ação de UI, siga: Composable → ViewModel → UseCase/Repos
 ## 5. Edição e mídia
 
 ### Imagem estática
+
+Os dois editores compartilham `StickerCanvasViewport` e `StickerEditorDock` (`ui/components/StickerEditorLayout.kt`). O canvas quadrado usa apenas o espaço livre acima do painel; o painel fica no fluxo vertical, limitado a uma fração da altura disponível e rola internamente quando necessário. Assim timeline, texto e ferramentas não cobrem o canvas, inclusive em telas baixas e com teclado/navegação do sistema. O editor de imagem preserva a mesma composição para manter os fluxos padronizados.
 
 `EditorScreen` e `EditorViewModel` mantêm o estado de edição (`EditorState`, `ImageState`, `TextData`). A implementação oferece crop, texto com formatação, posicionamento/transformação, snap/grid, undo/redo e remoção de fundo por `BackgroundRemover` (ML Kit). O `StickerCanvasBoundary` fica sobre todas as camadas e desenha um contorno duplo sutil, mantendo visível o limite quadrado de 512×512 mesmo quando a mídia ocupa o canvas inteiro; o quadriculado continua indicando transparência. `ImageHelper` oferece redimensionamento. Confirme o formato e dimensões da saída em `SaveStickerViewModel` e nos helpers antes de mexer em compatibilidade/tamanho.
 
@@ -131,3 +133,4 @@ O diagnóstico posterior da exportação mostrou que a busca binária executava 
 
 Para o envio ao Play bloqueado pelo target API, o projeto passou a `compileSdk/targetSdk 36`, `versionCode 6` e `versionName 1.4`. A atividade principal continua retrato e recebeu temporariamente `PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY`, porque Android 16 ignora essa trava em telas `sw600dp` quando se mira API 36. Em 08/11/2026 passaram `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:bundleRelease`, `:app:lintDebug` e os sete testes de `:app:connectedDebugAndroidTest` no AVD API 36.1. Ainda falta validar a navegação do app em tablet/foldable API 36 antes de remover o opt-out.
 
+Em 11/11/2026, :app:testDebugUnitTest, :app:assembleDebug e :app:lintDebug passaram após compartilhar a viewport e o dock entre os dois editores. A instalação e inspeção visual no AVD API 36.1 confirmou o canvas quadrado e os controles completos sem sobreposição nas telas de imagem e vídeo; o dock de vídeo é rolável.
